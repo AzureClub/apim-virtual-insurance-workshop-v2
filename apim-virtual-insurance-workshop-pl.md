@@ -661,6 +661,71 @@ Na stronie https://learn.microsoft.com/en-us/azure/api-management/api-management
 
 ---
 
+## 10. Udostępnij Rest API jako MCP
+
+Microsoft Foundry
+
+Remote MCP Server endpoint
+https://apitest10.azure-api.net/polisyapimcp/mcp?api_key=xxxxxxxxxxxxxx
+
+Authentication Microsoft Entra
+
+Type Agent Identity
+
+Audience https://ai.azure.com
+
+Pełna polityka powinna wyglądać następująco:
+
+```xml
+<!--
+    - Policies are applied in the order they appear.
+    - Position <base/> inside a section to inherit policies from the outer scope.
+    - Comments within policies are not preserved.
+-->
+<!-- Add policies as children to the <inbound>, <outbound>, <backend>, and <on-error> elements -->
+<policies>
+	<!-- Throttle, authorize, validate, cache, or transform the requests -->
+	<inbound>
+		<base />
+		<choose>
+			<when condition="@(context.Request.Url.Query.ContainsKey("api_key"))">
+				<!-- 2. Ustaw nagłówek x-api-key na wartość z query -->
+				<set-header name="Ocp-Apim-Subscription-Key" exists-action="override">
+					<value>@(context.Request.Url.Query.GetValueOrDefault("api_key", ""))</value>
+				</set-header>
+				<!-- 3. (Opcjonalnie) usuń api_key z query zanim wyślesz do backendu -->
+				<set-query-parameter name="api_key" exists-action="delete" />
+			</when>
+		</choose>
+		<validate-azure-ad-token tenant-id="tenant-id xxxxxxxx" header-name="Authorization" failed-validation-httpcode="401" failed-validation-error-message="Unauthorized. Access token is missing or invalid.">
+			<client-application-ids>
+				<application-id>xxxxxxxxxxxxxxxxxxxxxx</application-id>
+			</client-application-ids>
+		</validate-azure-ad-token>
+	</inbound>
+	<!-- Control if and how the requests are forwarded to services  -->
+	<backend>
+		<base />
+	</backend>
+	<!-- Customize the responses -->
+	<outbound>
+		<base />
+	</outbound>
+	<!-- Handle exceptions and customize error responses  -->
+	<on-error>
+		<base />
+	</on-error>
+</policies>
+```
+
+## 11 
+
+Orson
+
+## 12
+
+Jakub
+
 ## Podsumowanie
 
 Gratulacje! Stworzyłeś kompletny interfejs API za pomocą Azure API Management, który:
