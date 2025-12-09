@@ -661,7 +661,12 @@ Na stronie https://learn.microsoft.com/en-us/azure/api-management/api-management
 
 ---
 
-## 10. Udostępnij Rest API jako MCP
+## 10. 
+
+Orson
+
+## 11. Udostępnij Rest API jako MCP
+
 
 Microsoft Foundry
 
@@ -717,10 +722,6 @@ Pełna polityka powinna wyglądać następująco:
 	</on-error>
 </policies>
 ```
-
-## 11 
-
-Orson
 
 ## 12
 
