@@ -665,21 +665,55 @@ Na stronie https://learn.microsoft.com/en-us/azure/api-management/api-management
 
 Orson
 
-## 11. Udostępnij Rest API jako MCP
+## 11. Udostępnianie API jako MCP dla Agenta w Microsoft Foundry
 
+https://learn.microsoft.com/en-us/azure/api-management/export-rest-mcp-server
 
-Microsoft Foundry
+### 11.1 Udostępnienie REST API jako MCP
 
-Remote MCP Server endpoint
-https://apitest10.azure-api.net/polisyapimcp/mcp?api_key=xxxxxxxxxxxxxx
+1. Przejdź do swojego API Management
+2. Następnie przejdź do "MCP Servers"
+3. Kliknij na "Create MCP server" wybierz "Expose an API as MCP server"
+4. W polu "API" wybierz "PolisyAPI"
+5. W polu "API operations" wybierz "[Get] GetPolisy"
+6. W polu "Display name" wprowadź nazwę "PolisyAPIMCP"
+7. W polu "Name" wprowadź nazwę "polisyapimcp"
+8. W polu "Description" wprowadź "Lista dostępnych polis"
+9. Kliknij "Create"
+10. Wejdź do stworzonego MCP o nazwie "PolisyAPIMCP" i zanotuj "MCP server URL", np. https://xxxxxxx.azure-api.net/polisyapimcp/mcp
 
-Authentication Microsoft Entra
+### 11.2 Konfiguracja agenta w Microsoft Foundry
 
-Type Agent Identity
+1. Przejdź na stronę "https://ai.azure.com"
+2. Wyszukaj swój Microsoft Foundry, w którym chcesz utworzyć agenta, korzystaj z nowego wyglądu Microsoft Foundry. Zmianę projektu Microsoft Foundry znajdziesz w lewym górnym rogu.
+3. Przejdź na zakładkę "Build" - znajdziesz tę opcję w prawym górnym rogu
+4. Kliknij na opcję "Create agent"
+5. W polu "Create an agent" wpisz "Agent-Ubezpieczeniowy"
+6. W polu wyboru modeli wybierz dowolny dostępny model
+7. W polu "Instructions" wpisz "Jesteś agentem ubezpieczeniowym, pomagasz klientowi wybrać odpowiednie ubezpieczenie. Masz dostęp do listy ubezpieczeń poprzez serwer MCP."
+8. Przejdź do opcji "Tools" wybierz "Add" następnie "Custom" z listy wybierz "Model Context Protocol (MCP)", kliknij "Create"
+9. W polu "Name" wprowadź "PolisyAPIMCP"
+10. W polu "Remote MCP Server endpoint" wprowadź adres MCP serwera, który zanotowałeś w punkcie 11.1.10
+11. W polu "Authentication" wybierz "Microsoft Entra" - będziemy w kolejnych krokach konfigurować politykę po stronie API Management, aby dopuszczała do MCP tego agenta/projektu
+12. W polu "Type" wybierz "Agent Identity"
+13. Ze względu na to, że Microsoft Foundry Agent Service v2 obecnie nie ma możliwości dodania kilku metod uwierzytelniania jednocześnie, dodamy "Subscription key" do query stringa. Zmień "Remote MCP Server endpoint" na https://xxxxxxx.azure-api.net/polisyapimcp/mcp?api_key=xxxxxxxxxxxxxxxxxxxxx, gdzie "Subscription key" wygenerowałeś w punkcie "3.1".
+14. W polu "Audience" wpisz "https://ai.azure.com". 
 
-Audience https://ai.azure.com
+**Uwaga:** W kolejnej sekcji skonfigurujemy politykę `validate-azure-ad-token` po stronie API Management, która będzie walidować tokeny Microsoft Entra wysyłane przez agenta. Pole "Audience" określa, dla którego odbiorcy token powinien zostać wystawiony, jednak w naszej implementacji skupimy się głównie na walidacji `client-application-id` (identyfikatora aplikacji agenta). Dodatkowo używamy klucza subskrypcji (Subscription key) przekazanego w query stringu jako dodatkowej warstwy zabezpieczeń.
 
-Pełna polityka powinna wyglądać następująco:
+15. Kliknij "Create" aby zapisać konfigurację MCP w agencie.
+16. Kliknij "Save"
+17. Możesz przetestować działanie agenta, wpisując w okno czatu "Podaj listę dostępnych polis ubezpieczeniowych?". Powinna pojawić się informacja, czy akceptujesz wykonanie zapytania "getPolisy". Ze względu na nieskonfigurowaną politykę system powinien odrzucić dostęp do serwera MCP.
+
+### 11.3 Konfiguracja polityki dla MCP server
+
+1. Przejdź do "https://portal.azure.com", wyszukaj "Microsoft Foundry Project", w którym utworzyłeś agenta z kroku 11.2, przejdź do "Microsoft Foundry Project", a następnie kliknij "JSON View" w prawym górnym rogu i zanotuj "agentIdentityId".
+2. Innym sposobem na wyszukanie "agentIdentityId" jest skorzystanie z portalu "https://entra.microsoft.com/" w zakładce "Agent ID". W zakładce "All agent identities" wyszukaj tożsamość z nazwą twojego zasobu "Microsoft Foundry project" z dopiskiem AgentIdentity, np. "Aaifblamis01-aifblamis01-project01-AgentIdentity".
+3. Przejdź do swojego API Management.
+4. Następnie przejdź do "MCP Servers".
+5. Przejdź do "MCP Server" o nazwie "polisyapimcp".
+6. Przejdź do zakładki "Policies".
+7. Wprowadź poniższą politykę. Zmień w polityce linię dotyczącą "tenant-id" oraz "<application-id>" - wprowadź "application-id" z punktu 11.3.1.
 
 ```xml
 <!--
@@ -722,6 +756,12 @@ Pełna polityka powinna wyglądać następująco:
 	</on-error>
 </policies>
 ```
+
+8. Przejdź na stronę "https://ai.azure.com".
+9. Wyszukaj swój Microsoft Foundry, w którym został utworzony agent. Korzystaj z nowego wyglądu Microsoft Foundry. Zmianę projektu Microsoft Foundry znajdziesz w lewym górnym rogu.
+10. Przejdź na zakładkę "Build" - znajdziesz tę opcję w prawym górnym rogu.
+11. Kliknij na opcję "Agents", następnie wybierz "Agent-Ubezpieczeniowy".
+12. Możesz przetestować działanie agenta, wpisując w okno czatu "Podaj listę dostępnych polis ubezpieczeniowych?". Powinna pojawić się informacja, czy akceptujesz wykonanie zapytania "getPolisy". Tym razem API Management powinno wyświetlić dane.
 
 ## 12
 
