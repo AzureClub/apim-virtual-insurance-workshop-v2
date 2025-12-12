@@ -314,7 +314,6 @@ https://learn.microsoft.com/en-us/azure/api-management/validate-azure-ad-token-p
             </client-application-ids>
         </validate-azure-ad-token>
 ```
-
 3. Zastąp "xxxxxxxxxxx" swoim Tenant ID oraz "xxxxxxxxxx" swoim Client ID
 4. Kliknij "Save"
 
@@ -365,13 +364,15 @@ az ad sp show --id '[Object (principal) ID]' | ConvertFrom-Json | select display
 
 https://learn.microsoft.com/en-us/azure/api-management/azure-openai-token-limit-policy
 
-1. Znajdż "Azure API Managment" w portalu azure, następnie przejdź do "APIs" i wybierz API dla OpenAI o nazwie "polisy-ai"
+1. Znajdż "Azure API Managment" w portalu azure, następnie przejdź do "APIs" i wybierz API dla Microsft Foundry o nazwie "polisy-ai"
 2. Przejdź do sekcji "Inbound processing" a następnie "Policies", kliknij w oznaczenie </>
 3. W edytorze XML dodaj w sekcji `<inbound>` po `<base />`:
 
 ```xml
 <azure-openai-token-limit counter-key="@(context.Subscription.Id)" tokens-per-minute="10000" estimate-prompt-tokens="true" />
 ```
+
+**Uwaga:** Obecnie nie jest już wymagana poniższa polityka (punkty 4,5,6), API MGMT w zakładce "Backend" automatycznie dodaje Managed Identity API MGMT do łączenia się do Microsoft Foundry, warto jednak prześledzić politykę może przydać się w innych integracjach.
 
 4. Dodaj również politykę uwierzytelniania Managed Identity do Azure OpenAI:
 
@@ -418,11 +419,12 @@ Pełna polityka powinna wyglądać następująco:
       </client-application-ids>
     </validate-azure-ad-token>
     <azure-openai-token-limit counter-key="@(context.Subscription.Id)" tokens-per-minute="10000" estimate-prompt-tokens="true" />
+            <llm-emit-token-metric>
+            <dimension name="User ID" />
+            <dimension name="Subscription ID" />
+            <dimension name="Operation ID" />
+        </llm-emit-token-metric>
     <set-backend-service id="apim-generated-policy" backend-id="polisy-ai-openai-endpoint" />
-    <authentication-managed-identity resource="https://cognitiveservices.azure.com" output-token-variable-name="managed-id-access-token" ignore-error="false" />
-    <set-header name="Authorization" exists-action="override">
-      <value>@("Bearer " + (string)context.Variables["managed-id-access-token"])</value>
-    </set-header>
   </inbound>
   <backend>
     <base />
