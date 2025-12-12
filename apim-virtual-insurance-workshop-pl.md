@@ -488,6 +488,7 @@ Pełna polityka powinna wyglądać następująco:
 https://learn.microsoft.com/en-us/azure/logic-apps/monitor-logic-apps-overview
 
 10. Poczekaj kilka sekund na odpowiedź z Azure Open AI i kliknij na "View monitoring view", sprawdź jak wyglądał przepływ zdarzeń w Azure Logic App. Przejdź do klocka o nazwie "polisy-ai" i w sekcji "Outputs" znajdź "Body", sprawdź odpowiedź od modelu.
+11. Zadanie dodatkowe, zmień tak polityki w "Azure API Management" oraz konfigurację "Azure Logic App" aby "Azure Logic App" dla "polisyapi" wykorzystywał również "Managed Identity"
 
 ---
 
