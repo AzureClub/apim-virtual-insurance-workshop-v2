@@ -308,15 +308,11 @@ https://learn.microsoft.com/en-us/azure/api-management/validate-azure-ad-token-p
 2. W edytorze XML dodaj w sekcji `<inbound>` po `<base />`:
 
 ```xml
-<policies>
-    <inbound>
-        <base />
         <validate-azure-ad-token tenant-id="xxxx">
             <client-application-ids>
                 <application-id>xxxx</application-id>
             </client-application-ids>
         </validate-azure-ad-token>
-    </inbound>
 ```
 
 3. Zastąp "xxxxxxxxxxx" swoim Tenant ID oraz "xxxxxxxxxx" swoim Client ID
