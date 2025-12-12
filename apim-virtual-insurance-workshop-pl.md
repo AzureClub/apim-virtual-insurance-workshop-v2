@@ -7,7 +7,7 @@ Celem warsztatu jest stworzenie interfejsu API do integracji z chatbotem generat
 Przed przystąpieniem do warsztatu, upewnij się że posiadasz:
 
 - Aktywną subskrypcję Azure (lub darmowe środki)
-- Wdrożoną usługę Azure Open AI z dostępnym modelem np. "gpt-4o-mini"
+- Wdrożoną usługę Microsoft Foundry z dostępnym modelem np. "gpt-4o-mini"
 https://learn.microsoft.com/en-us/azure/ai-services/openai/how-to/create-resource?pivots=web-portal
 - Wdrożoną usługe "Azure Log Analytics"
 https://learn.microsoft.com/en-us/azure/api-management/monitor-api-management
@@ -108,7 +108,7 @@ Dla naszego API będziemy używać następującego modelu danych polisy:
 5. Kliknij "Save"
 6. Przejdź do zakładki "Settings" W sekcji "Subscription" odznacz opcję "Subscription required" (dla celów testowych)
 7. Kliknij "Save"
-8. Wybierz utworzone API i przejdź do "Inbound processing"
+8. Wybierz Design i przejdź do "Inbound processing"
 9. Kliknij "Add policy", wybierz "mock-response"
 10. Kliknij "Save"
 
@@ -125,34 +125,41 @@ https://learn.microsoft.com/en-us/azure/api-management/api-management-howto-api-
 
 ## 2. UDOSTĘPNIENIE OPEN AI POPRZEZ APIM
 
+https://learn.microsoft.com/en-us/azure/api-management/azure-ai-foundry-api
 https://learn.microsoft.com/en-us/azure/api-management/azure-openai-api-from-specification
 
 ### 2.1 Dodawanie API Azure OpenAI
 
 1. W zasobie API Management przejdź do sekcji "APIs"
-2. Kliknij "+ Add API" i wybierz "Azure OpenAI Service"
+2. Kliknij "+ Add API" i wybierz "Azure AI Foundry"
+3. W Zakładce "Select AI Service" wybierz usługę Microsoft Foundry 
+4. Kliknij "Next"
 3. Wypełnij formularz:
-    - Wybierz dostępną instancję Azure OpenAI
     - **Display name**: polisy-ai
     - **name**: polisy-ai
     - Podaj dowolny opis
-    - Zaznacz opcję "Improve SDK Compatibility"
+    - Zaznacz opcję "Azure OpenAI"
 4. Kliknij "Next"
-5. Zaznacz opcję "Track token usage" (potrzebne do rozliczalności)
-6. Wybierz dostępną instancję Application Insights jako miejsce do odkładania metryk tokenów
-7. W opcji "dimension" wybierz: User ID, API ID
-8. Kliknij "Review + create"
-9. kliknij "Create"
+5. Zaznacz opcję "Track token usage" (potrzebne do rozliczalności) - zaposnaj się z linkami https://learn.microsoft.com/en-us/azure/api-management/azure-openai-emit-token-metric-policy oraz https://learn.microsoft.com/en-us/azure/api-management/azure-openai-token-limit-policy
 
-https://learn.microsoft.com/en-us/azure/api-management/azure-openai-emit-token-metric-policy
+6. Wybierz dostępną instancję Application Insights jako miejsce do odkładania metryk tokenów
+7. W opcji "dimension" wybierz: User ID, API ID, Subscription ID
+8. Kliknij "Next" - zapoznaj się z opcją "Semantic caching"
+https://learn.microsoft.com/en-us/azure/api-management/azure-openai-enable-semantic-caching
+9. Kliknij "Next" - zapoznaj się z opcją "AI content safety"
+https://learn.microsoft.com/en-us/azure/api-management/llm-content-safety-policy
+10. Kliknij "Next"
+11. kliknij "Create"
+
+Samo skonfigurowanie "Track token usage" nie wystraczy aby metryki pojawiły się w "Application Insight" nalezy jeszcze
 
 ### 2.2 Testowanie dostępności OpenAI API
 
 1. Po utworzeniu API, wybierz je z listy
 2. Wybierz operacje "Creates a completion for the chat message"
 3. Przejdź do zakładki "Test"
-4. Dla deploymentu wybierz "gpt-4o-mini" (lub inny dostępny)
-5. Dla api-version ustaw "2024-05-01-preview"
+4. Dla deploymentu wpisz "gpt-4o-mini" (lub inny dostępny)
+5. Dla api-version wpisz "2024-05-01-preview"
 6. W body umieść poniższy JSON:
 
 ```json
@@ -167,7 +174,7 @@ https://learn.microsoft.com/en-us/azure/api-management/azure-openai-emit-token-m
 ```
 
 7. Kliknij "Send" i sprawdź odpowiedź
-8. Tym razem nie wyłączylismy w zakładce "Settings" opcji "Subscription required", a jednak udało się nam wysłać zapytanie. Dzieje się to dlatego że portal automatycznie podkłada klucz, możesz to sprawdzić poprzez zakładkę "Trace".
+8. Tym razem nie wyłączylismy w zakładce "Settings" opcji "Subscription required", a jednak udało się nam wysłać zapytanie. Dzieje się to dlatego że portal automatycznie podkłada klucz, możesz to sprawdzić poprzez wysłanie zapytania przyciskiem "Trace".
 ### 2.3 Weryfikacja ustawień subskrypcji dla API polisy-ai
 
 1. Przejdź do "APIs" i wybierz "polisy-ai"
@@ -272,11 +279,12 @@ https://learn.microsoft.com/en-us/entra/identity-platform/quickstart-register-ap
 1. W Azure Portal przejdź do "Microsoft Entra ID"
 2. Wybierz "App registrations" i kliknij "+ New registration"
 3. Wypełnij formularz:
-    - **Name**: PolisyAPI-OAuth
+    - **Name**: PolisyAPI-OAuth-username (wprowadź nazwę swojego użytkownika)
     - **Supported account types**: wybierz "Accounts in this organizational directory only"
 4. Kliknij "Register"
 5. Zanotuj wartości "Application (client) ID" oraz "Directory (tenant) ID"
-6. Wygeneruj secret i zapisz klucz (pamiętaj o zapisaniu klucza po wygenerowaniu – będzie tylko widoczny przez chwilę).
+6. Przejdź do "Mange" następnie "Certificates & secrets" 
+7. Wygeneruj secret i zapisz klucz (pamiętaj o zapisaniu klucza po wygenerowaniu – będzie tylko widoczny przez chwilę). W polu "Description" wpisz dowolną wartość, w polu "Expires" wybierz "90 days"
 
 ### 5.2 Implementacja polityki uwierzytelniania Azure AD
 
