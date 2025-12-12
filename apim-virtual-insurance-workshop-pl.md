@@ -4,14 +4,14 @@ Celem warsztatu jest stworzenie interfejsu API do integracji z chatbotem generat
 
 ## Wymagania dla uczestników
 
-Przed przystąpieniem do warsztatu, upewnij się że posiadasz:
+Przed przystąpieniem do warsztatu, upewnij się, że posiadasz:
 
 - Aktywną subskrypcję Azure (lub darmowe środki)
 - Wdrożoną usługę Microsoft Foundry z dostępnym modelem np. "gpt-4o-mini"
 https://learn.microsoft.com/en-us/azure/ai-services/openai/how-to/create-resource?pivots=web-portal
-- Wdrożoną usługe "Azure Log Analytics"
+- Wdrożoną usługę "Azure Log Analytics"
 https://learn.microsoft.com/en-us/azure/api-management/monitor-api-management
-- Wdrożoną usługe "Application Insight"
+- Wdrożoną usługę "Application Insight"
 https://learn.microsoft.com/en-us/azure/api-management/api-management-howto-app-insights?tabs=rest
 - Zainstalowane narzędzia:
     - Azure CLI (wersja 2.40.0 lub wyższa)
@@ -26,7 +26,7 @@ https://learn.microsoft.com/en-us/azure/api-management/api-management-howto-app-
 ### 1.1 Przygotowanie środowiska
 
 1. Zaloguj się do Azure Portal (portal.azure.com)  
-2. Sprawdź czy posiadasz aktywną subskrypcję
+2. Sprawdź, czy posiadasz aktywną subskrypcję
 
 ### 1.2 Tworzenie usługi Azure API Management
 
@@ -42,8 +42,8 @@ https://learn.microsoft.com/en-us/azure/api-management/get-started-create-servic
     - **Organization name**: nazwa Twojej organizacji
     - **Administrator email**: Twój adres email
     - **Pricing tier**: Developer (najtańsza, nieprodukcyjna opcja)
-4. W zakładce "Monitor + Secure", zaznacz opcje "Log Analytics" oraz "Application Insights", wybierz wcześniej utworzone zasoby.
-5. W zakładce "Virtual Network", zaznacz opcję "Virtual Network" a następnie z "Type" wybierz "External" poprzez opcję "Create new" utwórz nową sieć wirtualną, wprowadź nazwę i możesz zaakceptować domyślną adresację. 
+4. W zakładce "Monitor + Secure" zaznacz opcje "Log Analytics" oraz "Application Insights", wybierz wcześniej utworzone zasoby.
+5. W zakładce "Virtual Network" zaznacz opcję "Virtual Network", a następnie z "Type" wybierz "External". Poprzez opcję "Create new" utwórz nową sieć wirtualną, wprowadź nazwę i możesz zaakceptować domyślną adresację. 
 6. W zakładce "Managed identity" w polu "Status" zaznacz "checkbox"
 7. Kliknij "Review + create", a następnie "Create"
 8. Poczekaj na zakończenie wdrażania (może potrwać 30-40 minut)
@@ -140,7 +140,7 @@ https://learn.microsoft.com/en-us/azure/api-management/azure-openai-api-from-spe
     - Podaj dowolny opis
     - Zaznacz opcję "Azure OpenAI"
 4. Kliknij "Next"
-5. Zaznacz opcję "Track token usage" (potrzebne do rozliczalności) - zaposnaj się z linkami https://learn.microsoft.com/en-us/azure/api-management/azure-openai-emit-token-metric-policy oraz https://learn.microsoft.com/en-us/azure/api-management/azure-openai-token-limit-policy
+5. Zaznacz opcję "Track token usage" (potrzebne do rozliczalności) - zapoznaj się z linkami https://learn.microsoft.com/en-us/azure/api-management/azure-openai-emit-token-metric-policy oraz https://learn.microsoft.com/en-us/azure/api-management/azure-openai-token-limit-policy
 
 6. Wybierz dostępną instancję Application Insights jako miejsce do odkładania metryk tokenów
 7. W opcji "dimension" wybierz: API ID, Subscription ID, Operation ID
@@ -151,7 +151,7 @@ https://learn.microsoft.com/en-us/azure/api-management/llm-content-safety-policy
 10. Kliknij "Next"
 11. kliknij "Create"
 
-Samo skonfigurowanie "Track token usage" nie wystraczy aby metryki pojawiły się w "Application Insight" nalezy jeszcze wykonać konfiguracje z linka poniżej https://learn.microsoft.com/en-us/azure/api-management/api-management-howto-app-insights?tabs=rest takie jak "Create a connection between Application Insights and API Management", "Enable Application Insights logging for your API" jak również uruchomienie "Emit custom metrics". Dla ułatwienia ustawienie opcji "metrics" możesz zrobić poprzez cloudshell https://shell.azure.com
+Samo skonfigurowanie "Track token usage" nie wystarczy, aby metryki pojawiły się w "Application Insight". Należy jeszcze wykonać konfigurację z linka poniżej https://learn.microsoft.com/en-us/azure/api-management/api-management-howto-app-insights?tabs=rest takie jak "Create a connection between Application Insights and API Management", "Enable Application Insights logging for your API" jak również uruchomienie "Emit custom metrics". Dla ułatwienia ustawienie opcji "metrics" możesz zrobić poprzez cloudshell https://shell.azure.com
 
 ```
 az rest --method put \
@@ -187,12 +187,12 @@ Metryki możesz zobaczyć w "Log Analytics" wpisując w "Search" zapytanie "cust
 ```
 
 7. Kliknij "Send" i sprawdź odpowiedź
-8. Tym razem nie wyłączylismy w zakładce "Settings" opcji "Subscription required", a jednak udało się nam wysłać zapytanie. Dzieje się to dlatego że portal automatycznie podkłada klucz, możesz to sprawdzić poprzez wysłanie zapytania przyciskiem "Trace".
+8. Tym razem nie wyłączyliśmy w zakładce "Settings" opcji "Subscription required", a jednak udało się nam wysłać zapytanie. Dzieje się to dlatego, że portal automatycznie podkłada klucz. Możesz to sprawdzić poprzez wysłanie zapytania przyciskiem "Trace".
 ### 2.3 Weryfikacja ustawień subskrypcji dla API polisy-ai
 
 1. Przejdź do "APIs" i wybierz "polisy-ai"
 2. Przejdź do zakładki "Settings"
-3. W sekcji "Subscription" upewnij się że jest zaznaczona opcję "Subscription required"
+3. W sekcji "Subscription" upewnij się, że jest zaznaczona opcja "Subscription required"
 4. Upewnij się że w "Header name" wartość to "Ocp-Apim-Subscription-Key" a w "Query parameter name" widnieje wartość "subscription-key"
 5. Kliknij "Save"
 
@@ -200,7 +200,7 @@ Metryki możesz zobaczyć w "Log Analytics" wpisując w "Search" zapytanie "cust
 
 https://learn.microsoft.com/en-us/azure/api-management/api-management-howto-use-managed-service-identity
 
-Sprawdź czy został włączony dla "API Management" "system managed identity" i czy zostało nadane uprawnienie dla tej tożsamości do "Microsoft Foundry". "Managed Identity" powinno zostać utworzone podczas tworzenia API Managemnt, rola powinna zostać nadana podczas dodawania API "polisy-ai".
+Sprawdź, czy został włączony dla "API Management" "system managed identity" i czy zostało nadane uprawnienie dla tej tożsamości do "Microsoft Foundry". "Managed Identity" powinno zostać utworzone podczas tworzenia API Management, rola powinna zostać nadana podczas dodawania API "polisy-ai".
 
 1. Przejdź do swojego API Management
 2. W menu bocznym wybierz "Managed identities"
@@ -232,7 +232,7 @@ https://learn.microsoft.com/en-us/azure/api-management/api-management-subscripti
 1. Przejdź do "APIs" i wybierz "PolisyAPI"
 2. Przejdź do zakładki "Settings"
 3. W sekcji "Subscription" zaznacz opcję "Subscription required"
-4. Upewnij się że w "Header name" wartość to "Ocp-Apim-Subscription-Key" a w "Query parameter name" widnieje wartość "subscription-key"
+4. Upewnij się, że w "Header name" wartość to "Ocp-Apim-Subscription-Key", a w "Query parameter name" widnieje wartość "subscription-key"
 5. Kliknij "Save"
 
 ### 3.3 Testowanie API z kluczem
@@ -240,7 +240,7 @@ https://learn.microsoft.com/en-us/azure/api-management/api-management-subscripti
 1. Przejdź do zakładki "Test"
 2. Wybierz operację GET /polisy
 3. Kliknij "Send" i zweryfikuj, że otrzymujesz prawidłową odpowiedź
-4. Sprawdź jak wygląda pełny request (ikonka oka po prawej stronie w sekcji HTTP request). Narzędzie do testowania samo dodaje header "Ocp-Apim-Subscription-Key". Jeśli będziesz korzystał z innych narzędzi pamiętaj o dodaniu header "Ocp-Apim-Subscription-Key" wraz z prawidłowym kluczem.
+4. Sprawdź jak wygląda pełny request (ikonka oka po prawej stronie w sekcji HTTP request). Narzędzie do testowania samo dodaje header "Ocp-Apim-Subscription-Key". Jeśli będziesz korzystał z innych narzędzi, pamiętaj o dodaniu header "Ocp-Apim-Subscription-Key" wraz z prawidłowym kluczem.
 
 ---
 
@@ -267,7 +267,7 @@ Ta polityka ogranicza liczbę wywołań do 5 na 30 sekund.
 1. Przejdź do zakładki "Test"
 2. Wybierz operację GET /polisy
 3. Kliknij "Send" co najmniej 6 razy w ciągu 30 sekund
-4. Zauważ, że po 5 wywołaniach otrzymujesz błąd 429 Too Many Requests
+4. Zauważ, że po 5 wywołaniach otrzymujesz błąd "429 Too Many Requests"
 
 ### 4.3 Usuwanie Rate Limiting
 
@@ -317,7 +317,7 @@ https://learn.microsoft.com/en-us/azure/api-management/validate-azure-ad-token-p
 3. Zastąp "xxxxxxxxxxx" swoim Tenant ID oraz "xxxxxxxxxx" swoim Client ID
 4. Kliknij "Save"
 
-### 5.3 Utwórz prostą Azure LogicApp która pomoże ci przetestować uwierzytelnianie.
+### 5.3 Utwórz prostą Azure Logic App, która pomoże Ci przetestować uwierzytelnianie.
 
 https://learn.microsoft.com/en-us/azure/logic-apps/quickstart-create-example-consumption-workflow
 
@@ -325,47 +325,47 @@ https://learn.microsoft.com/en-us/azure/logic-apps/quickstart-create-example-con
 2. Wyszukaj "Logic App", kliknij "Create"
 3. Wybierz "Multi-tenant"
 4. Wybierz "Select"
-5. Wybierz "Subscription" na której wdrożyłeś API Management
-6. Wybierz "Resource Group" na której wdrożyłeś API Management
+5. Wybierz "Subscription", na której wdrożyłeś API Management
+6. Wybierz "Resource Group", w której wdrożyłeś API Management
 7. W polu "Logic App name" wpisz "la-test01"
-8. W polu "Region" wybierz ten sam region w którym wdrożyłeś API Management.
+8. W polu "Region" wybierz ten sam region, w którym wdrożyłeś API Management.
 9. Kliknij "Review + Create" a następnie "Create".
 10. Po utworzeniu zasobu kliknij "Go to resource".
 11. Kliknij "Edit"
 12. Kliknij "Add a trigger", wybierz "Request", następnie "When a HTTP request is received", kliknij "Save".
-13. Kliknij znaczek + który znajduje się poniżej kafelka "When a HTTP request is received", wybierz "Add an action"
+13. Kliknij znaczek +, który znajduje się poniżej kafelka "When a HTTP request is received", wybierz "Add an action"
 14. Wyszukaj "Azure API Management" - wybierz "Choose an Azure API Management action", zaznacz swoją instancję Azure API Management.
 15. Wybierz "PolisyAPI", kliknij "Add action".
 16. W polu "Operation Id" wybierz "GetPolisy".
 17. W polu "Advanced parameters" zaznacz zarówno "Authentication" jak i "Subscription key".
-18. W polu "Authentication" wybierz Active Directory OAuth a następnie wypełnij wszystkie wymagane pola takie jak "Tenant", "Audience", "Client ID" oraz "Secret", w polu "Audience" wpisz "https://management.azure.com/".
-19. W polu "Subscription key" wpisz klucz który wygenerowałeś w punkcie "3.1", kliknij "Save".
+18. W polu "Authentication" wybierz Active Directory OAuth, a następnie wypełnij wszystkie wymagane pola takie jak "Tenant", "Audience", "Client ID" oraz "Secret". W polu "Audience" wpisz "https://management.azure.com/".
+19. W polu "Subscription key" wpisz klucz, który wygenerowałeś w punkcie "3.1", kliknij "Save".
 20. Kliknij "Run" następnie "Run".
 21. Przejdź na "Overview" i sprawdź w zakładce "Run History" wynik wysłania zapytania do "API" wystawionego przez "Azure API Management".
-22. Możesz poeksperymentować i pozmieniać wartości np. zmienić klucz na błędny aby sprawdzić że uwierzytelnianie działa. Błędy możesz sprawdzić w "History".
+22. Możesz poeksperymentować i pozmieniać wartości, np. zmienić klucz na błędny, aby sprawdzić, że uwierzytelnianie działa. Błędy możesz sprawdzić w "History".
 
 ---
 
 ## 6. OPEN AI TOKEN LIMIT
 
-### 6.1 Skonfiguruj "Azure Logic App" aby umożliwiało wykorzystanie "Managed Identity" do łączenia się z innymi usługami takimi jak np. "Azure API Management".
+### 6.1 Skonfiguruj "Azure Logic App", aby umożliwiało wykorzystanie "Managed Identity" do łączenia się z innymi usługami, takimi jak np. "Azure API Management".
 
-**W przypadku braku uprawnień do Microsoft Entra ID użyj polecenia Azure CLI, aby wyświetlić identyfikator aplikacji (Application ID). Możesz to zrobić poprzez Azure Cloud Shell.**
+**W przypadku braku uprawnień do Microsoft Entra ID, użyj polecenia Azure CLI, aby wyświetlić identyfikator aplikacji (Application ID). Możesz to zrobić poprzez Azure Cloud Shell.**
 
 ```bash
 az ad sp show --id '[Object (principal) ID]' | ConvertFrom-Json | select displayName, appId
 ```
 
 1. Przejdź do "Azure Logic App" o nazwie "la-test01".
-2. Przejdź do zakładki "Identity", kliknij "System assigned", wybierz "ON" a następnie "Save".
-3. W EntraID znajdź "Application ID", który dotyczy "Managed Identity" utworzonego dla "Azure Logic App". Przejdź do "Entra ID" następnie "Enterprise applications", w "Application type" wybierz "Managed Identity", wyszukaj nazwę "la-test01". Zanotuj "Application ID".
+2. Przejdź do zakładki "Identity", kliknij "System assigned", wybierz "ON", a następnie "Save".
+3. W Entra ID znajdź "Application ID", który dotyczy "Managed Identity" utworzonego dla "Azure Logic App". Przejdź do "Entra ID", następnie "Enterprise applications". W "Application type" wybierz "Managed Identity", wyszukaj nazwę "la-test01". Zanotuj "Application ID".
 
-### 6.1 Dodawanie polityki limitu tokenów OpenAI
+### 6.2 Dodawanie polityki limitu tokenów OpenAI
 
 https://learn.microsoft.com/en-us/azure/api-management/azure-openai-token-limit-policy
 
-1. Znajdż "Azure API Managment" w portalu azure, następnie przejdź do "APIs" i wybierz API dla Microsft Foundry o nazwie "polisy-ai"
-2. Przejdź do sekcji "Inbound processing" a następnie "Policies", kliknij w oznaczenie </>
+1. Znajdź "Azure API Management" w portalu Azure, następnie przejdź do "APIs" i wybierz API dla Microsoft Foundry o nazwie "polisy-ai"
+2. Przejdź do sekcji "Inbound processing", a następnie "Policies", kliknij w oznaczenie </>
 3. W edytorze XML dodaj w sekcji `<inbound>` po `<base />`:
 
 ```xml
@@ -387,7 +387,7 @@ https://learn.microsoft.com/en-us/azure/api-management/authentication-managed-id
 
 5. Sprawdź czy jest ustawiony backend OpenAI:
 
-Backend-id musi mieć tą samą nazwę co "Backend name" w zakłade "Backends".
+Backend-id musi mieć tę samą nazwę co "Backend name" w zakładce "Backends".
 
 ```xml
 <set-backend-service id="apim-generated-policy" backend-id="polisy-ai-openai-endpoint" />
@@ -397,7 +397,7 @@ Backend-id musi mieć tą samą nazwę co "Backend name" w zakłade "Backends".
 
 https://learn.microsoft.com/en-us/azure/api-management/validate-azure-ad-token-policy
 
-8. Zmień politykę "validate-azure-ad-token tenant-id" w celu uwierzytelniania komunikacji tylko z określonego Managed Identity w tym przypadku podłączonego pod Azure Logic App, podaj "application-id" z punktu 6.1.3.
+8. Zmień politykę "validate-azure-ad-token tenant-id" w celu uwierzytelniania komunikacji tylko z określonego Managed Identity - w tym przypadku podłączonego pod Azure Logic App. Podaj "application-id" z punktu 6.1.3.
 
 ```xml
     <validate-azure-ad-token tenant-id="xxxxxxxxxxx">
@@ -438,10 +438,10 @@ Pełna polityka powinna wyglądać następująco:
 </policies>
 ````
 
-### 6.2 Dodanie do już istniejącego Azure Logic App kolejnego konektora który umożliwi komunikację z Azure Open AI.
+### 6.3 Dodanie do już istniejącego Azure Logic App kolejnego konektora, który umożliwi komunikację z Azure OpenAI.
 
-1. Przejdź do Azure Logic App następnie kliknij "Edit".
-2. Kliknij na pierwszy element "When a HTTP request is received" w polu "Request Body JSON Schema" wklej poniższy kod
+1. Przejdź do Azure Logic App, następnie kliknij "Edit".
+2. Kliknij na pierwszy element "When a HTTP request is received". W polu "Request Body JSON Schema" wklej poniższy kod
 
 ```
 {
@@ -454,11 +454,11 @@ Pełna polityka powinna wyglądać następująco:
 }
 ```
 
-3. Dodaj na sam koniec przepływu (poprzez znaczek +), akcję o nazwie "API Management", wypełnij formularz, wybierz swoje API Management a następnie wybierz polisy-ai API, kliknij "Add action".
+3. Dodaj na sam koniec przepływu (poprzez znaczek +) akcję o nazwie "API Management". Wypełnij formularz, wybierz swoje API Management, a następnie wybierz polisy-ai API, kliknij "Add action".
 4. W polu "Operation Id" wybierz "Creates a completion for the chat message".
-5. W polu "Deployment-ID" wpisz "gpt-4o-mini" lub inny model który jest dostępny w Azure Open AI.
+5. W polu "Deployment-ID" wpisz "gpt-4o-mini" lub inny model, który jest dostępny w Azure OpenAI.
 6. W polu "api-version" wpisz "2024-05-01-preview".
-7. W polu "Advanced parameters" zaznacz "Authentication", "Subscription key" oraz "body"
+7. W polu "Advanced parameters" zaznacz "Authentication", "Subscription key" oraz "body".
 7. W polu "Body" wpisz
 
 ```
@@ -476,19 +476,19 @@ Pełna polityka powinna wyglądać następująco:
 }
 ```
 
-8. W części "Authentication Types" wybierz "Managed identity" w części "Managed identity" wybierz "System-assigned managed identity", następnie w polu Audience wpisz https://management.azure.com/. W polu "Subscription key" wpisz klucz który wygenerowałeś w punkcie "3.1".
-9. Sprawdź działanie Azure Logic App, wybierz przycisk "Run" a następnie "Run with payload". W sekcji "Body" wprowadź poniższy kod
+8. W części "Authentication Types" wybierz "Managed identity". W części "Managed identity" wybierz "System-assigned managed identity", następnie w polu Audience wpisz https://management.azure.com/. W polu "Subscription key" wpisz klucz, który wygenerowałeś w punkcie "3.1".
+9. Sprawdź działanie Azure Logic App. Wybierz przycisk "Run", a następnie "Run with payload". W sekcji "Body" wprowadź poniższy kod
 
 ```
 {
-    "prompt": "Proszę podać id oraz ceny dotyczące polis ubezpieczeniowych. Napisz którą polise lepiej wybrać?"
+    "prompt": "Proszę podać id oraz ceny dotyczące polis ubezpieczeniowych. Napisz, którą polisę lepiej wybrać?"
 }
 ```
 
 https://learn.microsoft.com/en-us/azure/logic-apps/monitor-logic-apps-overview
 
-10. Poczekaj kilka sekund na odpowiedź z Azure Open AI i kliknij na "View monitoring view", sprawdź jak wyglądał przepływ zdarzeń w Azure Logic App. Przejdź do klocka o nazwie "polisy-ai" i w sekcji "Outputs" znajdź "Body", sprawdź odpowiedź od modelu.
-11. Zadanie dodatkowe, zmień tak polityki w "Azure API Management" oraz konfigurację "Azure Logic App" aby "Azure Logic App" dla "polisyapi" wykorzystywał również "Managed Identity"
+10. Poczekaj kilka sekund na odpowiedź z Azure OpenAI i kliknij na "View monitoring view". Sprawdź, jak wyglądał przepływ zdarzeń w Azure Logic App. Przejdź do klocka o nazwie "polisy-ai" i w sekcji "Outputs" znajdź "Body", sprawdź odpowiedź od modelu.
+11. Zadanie dodatkowe: zmień polityki w "Azure API Management" oraz konfigurację "Azure Logic App", aby "Azure Logic App" dla "polisyapi" wykorzystywał również "Managed Identity".
 
 ---
 
@@ -520,7 +520,7 @@ https://learn.microsoft.com/en-us/azure/api-management/find-and-replace-policy
 
 ### 7.3 Testowanie transformacji i anonimizacji v1
 
-1. Uruchom Azure Logic App tak jak w części 6.2.10 i sprawdź że obecnie "Body" na "Outputs" jest w postaci xml, oraz że id polisy zostało zastąpione z 123456 na xxxxxx.
+1. Uruchom Azure Logic App tak jak w części 6.3.9 i sprawdź, że obecnie "Body" na "Outputs" jest w postaci XML, oraz że id polisy zostało zastąpione z 123456 na xxxxxx.
 
 ---
 
@@ -548,7 +548,7 @@ https://learn.microsoft.com/en-us/azure/api-management/api-management-policy-exp
 
 ### 7.5 Testowanie transformacji i anonimizacji v2
 
-1. Uruchom Azure Logic App tak jak w części 6.2.10 i sprawdź że obecnie "Body" na "Outputs" jest w postaci xml, oraz że wszystkie id polisy zostały zastąpione z 123456 oraz 123457 na xxxxxx.
+1. Uruchom Azure Logic App tak jak w części 6.3.9 i sprawdź, że obecnie "Body" na "Outputs" jest w postaci XML, oraz że wszystkie id polisy zostały zastąpione z 123456 oraz 123457 na xxxxxx.
 
 ## 8. MONITOROWANIE I DIAGNOSTYKA W APIM
 
@@ -561,9 +561,9 @@ https://learn.microsoft.com/en-us/azure/api-management/api-management-howto-app-
     - Kliknij "+ Create"
     - Wypełnij formularz i utwórz zasób
 2. Przejdź do zasobu API Management
-3. W menu bocznym wyszukaj "Application Insights" dodaj wcześniej utworzony zasób Application Insights.
-4. Następnie w menu bocznym wybierz "APIs" następnie "All APIs"
-5. Kliknij "Settings" i kliknij "Enable" dla "Application Insight"
+3. W menu bocznym wyszukaj "Application Insights", dodaj wcześniej utworzony zasób Application Insights.
+4. Następnie w menu bocznym wybierz "APIs", następnie "All APIs".
+5. Kliknij "Settings" i kliknij "Enable" dla "Application Insight".
 6. W polu "Destination" wybierz wcześniej utworzony "Application Insight"
 7. W polu "Verbosity" zaznacz "Verbose"
 8. Kliknij "Save"
@@ -574,7 +574,7 @@ https://learn.microsoft.com/en-us/azure/api-management/trace-policy
 
 1. Przejdź do "APIs" i wybierz "polisy-ai"
 2. Wybierz zakładkę "Policies"
-3. W edytorze XML dodaj w sekcji `<inbound>` przed `<base />`:
+3. W edytorze XML dodaj w sekcji `<inbound>` po `<base />`:
 
 ```xml
         <!--Use consumer correlation id or generate new one-->
@@ -628,17 +628,13 @@ Pełna polityka powinna wyglądać następująco:
             <metadata name="Subscription-Id" value="@(context.Subscription?.Id ?? "anonymous")" />
             <metadata name="correlation-id" value="@((string)context.Variables["correlation-id"])" />
         </trace>
-        <validate-azure-ad-token tenant-id="xxxxxxxxxxx">
+        <validate-azure-ad-token tenant-id="xxxxxxxxxxxxxxxxxxxx">
             <client-application-ids>
-                <application-id>xxxxxxxxxxx</application-id>
+                <application-id>xxxxxxxxxxxxxxxx</application-id>
             </client-application-ids>
         </validate-azure-ad-token>
         <azure-openai-token-limit counter-key="@(context.Subscription.Id)" tokens-per-minute="10000" estimate-prompt-tokens="true" />
-        <set-backend-service id="apim-generated-policy" backend-id="polisy-ai-openai-endpoint" />
-        <authentication-managed-identity resource="https://cognitiveservices.azure.com" output-token-variable-name="managed-id-access-token" ignore-error="false" />
-        <set-header name="Authorization" exists-action="override">
-            <value>@("Bearer " + (string)context.Variables["managed-id-access-token"])</value>
-        </set-header>
+        <set-backend-service id="apim-generated-policy" backend-id="polisy-ai-ai-endpoint" />
     </inbound>
     <backend>
         <base />
@@ -671,14 +667,14 @@ https://learn.microsoft.com/en-us/azure/azure-monitor/app/transaction-search-and
 
 1. Wykonaj kilka zapytań do API
 2. Przejdź do zasobu Application Insights
-3. W menu bocznym wybierz "Investigate" a następnie "Transaction search"
-4. Sprawdź jak wyglądają wyniki.
+3. W menu bocznym wybierz "Investigate", a następnie "Search"
+4. Sprawdź, jak wyglądają wyniki.
 
 ---
 
 ## 9. Zapoznaj się z innymi politykami
 
-Na stronie https://learn.microsoft.com/en-us/azure/api-management/api-management-policies możesz zapoznać się z pełną listą polityk dostępnych w Azure API Management. Warto abyś sprawdził polityki takie jak Caching czy np. Rewrite URL. Dla Azure Open AI warto również zapoznać się z informacjami o semantic caching, znajdziesz więcej informacji na tej stronie: https://learn.microsoft.com/en-us/azure/api-management/azure-openai-enable-semantic-caching
+Na stronie https://learn.microsoft.com/en-us/azure/api-management/api-management-policies możesz zapoznać się z pełną listą polityk dostępnych w Azure API Management. Warto, abyś sprawdził polityki takie jak Caching czy np. Rewrite URL. Dla Azure OpenAI warto również zapoznać się z informacjami o semantic caching. Więcej informacji znajdziesz na tej stronie: https://learn.microsoft.com/en-us/azure/api-management/azure-openai-enable-semantic-caching
 
 ---
 
@@ -699,37 +695,37 @@ https://learn.microsoft.com/en-us/azure/api-management/export-rest-mcp-server
 5. W polu "API operations" wybierz "[Get] GetPolisy"
 6. W polu "Display name" wprowadź nazwę "PolisyAPIMCP"
 7. W polu "Name" wprowadź nazwę "polisyapimcp"
-8. W polu "Description" wprowadź "Lista dostępnych polis"
-9. Kliknij "Create"
-10. Wejdź do stworzonego MCP o nazwie "PolisyAPIMCP" i zanotuj "MCP server URL", np. https://xxxxxxx.azure-api.net/polisyapimcp/mcp
+9. W polu "Description" wprowadź "Lista dostępnych polis".
+10. Kliknij "Create"
+11. Wejdź do stworzonego MCP o nazwie "PolisyAPIMCP" i zanotuj "MCP server URL", np. https://xxxxxxx.azure-api.net/polisyapimcp/mcp
 
 ### 11.2 Konfiguracja agenta w Microsoft Foundry
 
-1. Przejdź na stronę "https://ai.azure.com"
-2. Wyszukaj swój Microsoft Foundry, w którym chcesz utworzyć agenta, korzystaj z nowego wyglądu Microsoft Foundry. Zmianę projektu Microsoft Foundry znajdziesz w lewym górnym rogu.
-3. Przejdź na zakładkę "Build" - znajdziesz tę opcję w prawym górnym rogu
-4. Kliknij na opcję "Create agent"
-5. W polu "Create an agent" wpisz "Agent-Ubezpieczeniowy"
-6. W polu wyboru modeli wybierz dowolny dostępny model
+1. Przejdź na stronę "https://ai.azure.com".
+2. Wyszukaj swój Microsoft Foundry, w którym chcesz utworzyć agenta. Korzystaj z nowego wyglądu Microsoft Foundry. Zmianę projektu Microsoft Foundry znajdziesz w lewym górnym rogu.
+3. Przejdź na zakładkę "Build" - znajdziesz tę opcję w prawym górnym rogu.
+4. Kliknij na opcję "Create agent".
+5. W polu "Create an agent" wpisz "Agent-Ubezpieczeniowy".
+6. W polu wyboru modeli wybierz dowolny dostępny model.
 7. W polu "Instructions" wpisz "Jesteś agentem ubezpieczeniowym, pomagasz klientowi wybrać odpowiednie ubezpieczenie. Masz dostęp do listy ubezpieczeń poprzez serwer MCP."
-8. Przejdź do opcji "Tools" wybierz "Add" następnie "Custom" z listy wybierz "Model Context Protocol (MCP)", kliknij "Create"
-9. W polu "Name" wprowadź "PolisyAPIMCP"
-10. W polu "Remote MCP Server endpoint" wprowadź adres MCP serwera, który zanotowałeś w punkcie 11.1.10
+8. Przejdź do opcji "Tools", wybierz "Add", następnie "Custom". Z listy wybierz "Model Context Protocol (MCP)", kliknij "Create".
+9. W polu "Name" wprowadź "PolisyAPIMCP".
+10. W polu "Remote MCP Server endpoint" wprowadź adres MCP serwera, który zanotowałeś w punkcie 11.1.11.
 11. W polu "Authentication" wybierz "Microsoft Entra" - będziemy w kolejnych krokach konfigurować politykę po stronie API Management, aby dopuszczała do MCP tego agenta/projektu
 12. W polu "Type" wybierz "Agent Identity"
-13. Ze względu na to, że Microsoft Foundry Agent Service v2 obecnie nie ma możliwości dodania kilku metod uwierzytelniania jednocześnie, dodamy "Subscription key" do query stringa. Zmień "Remote MCP Server endpoint" na https://xxxxxxx.azure-api.net/polisyapimcp/mcp?api_key=xxxxxxxxxxxxxxxxxxxxx, gdzie "Subscription key" wygenerowałeś w punkcie "3.1".
+13. Ze względu na to, że Microsoft Foundry Agent Service v2 obecnie nie ma możliwości dodania kilku metod uwierzytelniania jednocześnie, dodamy "Subscription key" do query stringa. Zmień "Remote MCP Server endpoint" na https://xxxxxxx.azure-api.net/polisyapimcp/mcp?api_key=xxxxxxxxxxxxxxxxxxxxx, gdzie "Subscription key" został wygenerowany w punkcie "3.1".
 14. W polu "Audience" wpisz "https://ai.azure.com". 
 
 **Uwaga:** W kolejnej sekcji skonfigurujemy politykę `validate-azure-ad-token` po stronie API Management, która będzie walidować tokeny Microsoft Entra wysyłane przez agenta. Pole "Audience" określa, dla którego odbiorcy token powinien zostać wystawiony, jednak w naszej implementacji skupimy się głównie na walidacji `client-application-id` (identyfikatora aplikacji agenta). Dodatkowo używamy klucza subskrypcji (Subscription key) przekazanego w query stringu jako dodatkowej warstwy zabezpieczeń.
 
-15. Kliknij "Create" aby zapisać konfigurację MCP w agencie.
-16. Kliknij "Save"
-17. Możesz przetestować działanie agenta, wpisując w okno czatu "Podaj listę dostępnych polis ubezpieczeniowych?". Powinna pojawić się informacja, czy akceptujesz wykonanie zapytania "getPolisy". Ze względu na nieskonfigurowaną politykę system powinien odrzucić dostęp do serwera MCP.
+15. Kliknij "Create", aby zapisać konfigurację MCP w agencie.
+16. Kliknij "Save".
+17. Możesz przetestować działanie agenta, wpisując w okno czatu "Podaj listę dostępnych polis ubezpieczeniowych?". Powinna pojawić się informacja, czy akceptujesz wykonanie zapytania "getPolisy". Ze względu na nieskonfigurowaną politykę, system powinien odrzucić dostęp do serwera MCP.
 
 ### 11.3 Konfiguracja polityki dla MCP server
 
-1. Przejdź do "https://portal.azure.com", wyszukaj "Microsoft Foundry Project", w którym utworzyłeś agenta z kroku 11.2, przejdź do "Microsoft Foundry Project", a następnie kliknij "JSON View" w prawym górnym rogu i zanotuj "agentIdentityId".
-2. Innym sposobem na wyszukanie "agentIdentityId" jest skorzystanie z portalu "https://entra.microsoft.com/" w zakładce "Agent ID". W zakładce "All agent identities" wyszukaj tożsamość z nazwą twojego zasobu "Microsoft Foundry project" z dopiskiem AgentIdentity, np. "Aaifblamis01-aifblamis01-project01-AgentIdentity".
+1. Przejdź do "https://portal.azure.com", wyszukaj "Microsoft Foundry Project", w którym utworzyłeś agenta z kroku 11.2. Przejdź do "Microsoft Foundry Project", a następnie kliknij "JSON View" w prawym górnym rogu i zanotuj "agentIdentityId".
+2. Innym sposobem na wyszukanie "agentIdentityId" jest skorzystanie z portalu "https://entra.microsoft.com/" w zakładce "Agent ID". W zakładce "All agent identities" wyszukaj tożsamość z nazwą Twojego zasobu "Microsoft Foundry project" z dopiskiem AgentIdentity, np. "Aaifblamis01-aifblamis01-project01-AgentIdentity".
 3. Przejdź do swojego API Management.
 4. Następnie przejdź do "MCP Servers".
 5. Przejdź do "MCP Server" o nazwie "polisyapimcp".
@@ -1133,7 +1129,7 @@ Gratulacje! Stworzyłeś kompletny interfejs API za pomocą Azure API Management
 - Integruje się z Azure OpenAI Service
 - Jest zabezpieczony przez klucze API i OAuth 2.0
 - Kontroluje ruch za pomocą limitów wywołań
-- Limit tokenów dla zapytań AI
+- Limituje tokeny dla zapytań AI
 - Transformuje i anonimizuje dane
 - Integruje się z bazą wiedzy w Azure Database for PostgreSQL i korzysta z vector search
 - Jest monitorowany w Application Insights
