@@ -784,9 +784,346 @@ https://learn.microsoft.com/en-us/azure/api-management/export-rest-mcp-server
 11. Kliknij na opcję "Agents", następnie wybierz "Agent-Ubezpieczeniowy".
 12. Możesz przetestować działanie agenta, wpisując w okno czatu "Podaj listę dostępnych polis ubezpieczeniowych?". Powinna pojawić się informacja, czy akceptujesz wykonanie zapytania "getPolisy". Tym razem API Management powinno wyświetlić dane.
 
-## 12
+## 12 Integracja z bazą wiedzy
 
-Jakub
+### 12.1 Konfiguracja Azure Database for PostgreSQL flexible server
+
+1. Jeśli nie masz jeszcze zasobu Azure Database for PostgreSQL flexible server, utwórz go:
+    - Wyszukaj "Azure Database for PostgreSQL flexible server" w Azure Portal
+    - Kliknij "+ Create"
+    - Wypełnij formularz i utwórz zasób (Uwaga! Authentication method: PostgreSQL and Microsoft Entra authentication. Utwórz użytkownika i zapisz jego hasło.)
+2. Po utworzeniu zasobu, otwórz go w portalu.
+3. Przejdź do opcji "Settings" -> "Server parameters".
+4. Na zakładce "All", dla parametru "azure.extensions" wybierz: AZURE_AI, PG_DISKANN oraz VECTOR.
+5. Upewnij się czy w opcji "Settings" -> "Networking" jest ustawiona reguła firewall dopuszczająca ruch z Twojego adresu IP - niezbędne dla uzyskania połączenia z bazą w następnym kroku.
+6. Skorzystaj z Visual Studio Code z rozszerzeniem PostgreSQL lub pgAdmin (https://www.pgadmin.org/download/) aby uzyskać połączenie z bazą. Parametry połączenia: adres serwera, nazwa bazy, użytkownik i hasło dostępne są w widoku zasobu w portalu.
+
+
+### 12.2 Zasilenie danymi, embedding, zakładanie indeksu DiskANN
+
+1. Skorzystaj z domyślnej bazy "postgres".
+2. W schemacie "public" utwórz nową tabelę "policies" korzystając z poniższego skryptu.
+
+```sql
+DROP TABLE IF EXISTS policies;
+
+CREATE TABLE IF NOT EXISTS policies (
+    polisa_id    TEXT PRIMARY KEY,
+    rodzaj_polisy TEXT NOT NULL,
+    pakiet       TEXT,
+    cena         NUMERIC(10,2) NOT NULL,
+    opis         TEXT
+);
+```
+
+3. Zasil nowo utworzoną tabelę danymi:
+
+```sql
+INSERT INTO policies (polisa_id, rodzaj_polisy, pakiet, cena, opis)
+VALUES
+  ('123456', 'zdrowotna', 'premium', 100, 'Ubezpieczenie zdrowotne premium.'),
+  ('123457', 'samochodowa', 'standard', 75, 'Podstawowe ubezpieczenie samochodu.'),
+  ('123458', 'turystyczna', 'premium', 120, 'Kompleksowe ubezpieczenie podróżne z ochroną bagażu i assistance.'),
+  ('123459', 'mieszkaniowa', 'standard', 90, 'Podstawowe ubezpieczenie mieszkania od zdarzeń losowych.'),
+  ('123460', 'na życie', 'premium', 150, 'Ubezpieczenie na życie z wysoką sumą ubezpieczenia i dodatkowymi świadczeniami.'),
+  ('123461', 'OC', 'standard', 60, 'Obowiązkowe ubezpieczenie odpowiedzialności cywilnej dla kierowców.'),
+  ('123462', 'firmowa', 'premium', 200, 'Ubezpieczenie dla przedsiębiorstw obejmujące mienie i odpowiedzialność cywilną.'),
+  ('123463', 'rowerowa', 'standard', 40, 'Ubezpieczenie roweru od kradzieży i uszkodzeń.')
+  ;
+```
+
+4. Włącz rozszerzenia AZURE_AI, PG_DISKANN oraz VECTOR:
+
+```sql
+CREATE EXTENSION IF NOT EXISTS azure_ai;
+CREATE EXTENSION IF NOT EXISTS vector;
+CREATE EXTENSION IF NOT EXISTS pg_diskann;
+```
+
+5. Skonfiguruj parametry połączenia z OpenAI. Będziemy wykorzystywać model do tworzenia embedding-ów (Uwaga! Upewnij się, że masz w Microsoft Foundry wdrożony model "text-embedding-ada-002"):
+
+```sql
+ SELECT azure_ai.set_setting('azure_openai.auth_type', 'managed-identity');
+SELECT azure_ai.set_setting('azure_openai.endpoint', '<endpoint>');
+```
+
+6. W tabeli "policies" dodaj kolumnę "embedding" typu wektorowego:
+
+```sql
+ALTER TABLE policies ADD COLUMN embedding vector(1536);
+```
+
+7. Zbuduj embeddingi dla danych w tabeli "policies":
+
+```sql
+WITH po AS (
+    SELECT po.polisa_id
+    FROM
+        policies po
+    WHERE
+        po.embedding is null
+        LIMIT 500 --limit aby nie przekroczyć limitu requestów; jeśli jest więcej niż 500 rekordów, kod wykonujemy kilkukrotnie
+)
+UPDATE
+    policies p
+SET
+    embedding = azure_openai.create_embeddings('text-embedding-ada-002', p.rodzaj_polisy||' '||p.pakiet||' '||p.cena||' '||p.opis)
+FROM
+    po
+WHERE
+    p.polisa_id = po.polisa_id;
+```
+
+8. Zbuduj indeks DiskANN na tabeli "policies":
+
+```sql
+CREATE INDEX ON policies USING diskann (embedding vector_cosine_ops);
+```
+
+9. Przetestuj działanie wyszukiwania wektorowego:
+
+```sql
+SELECT
+    p.*
+FROM
+    policies p
+ORDER BY
+    p.embedding <#> azure_openai.create_embeddings('text-embedding-ada-002', 'Polisa samochodowa')::vector
+LIMIT 1;
+```
+
+### 12.3 Tworzenie interfejsu obsługi zapytań z wyszukiwaniem wektorowym (vector search) w Azure Function
+
+1. Jeśli nie masz jeszcze zasobu Azure Function, utwórz go:
+    - Wyszukaj "Azure Function" w Azure Portal
+    - Kliknij "+ Create"
+    - Wypełnij formularz i utwórz zasób (Runtime: Python)
+2. Korzystając z rozszerzenia Azure Functions w Visual Studio Code utwórz nowy projekt (HTTP Triggered).
+3. W razie potrzeby skorzystaj z kodu funkcji dołączonego do repozytorium.
+4. Zdefiniuj funkcję realizującą połączenie z bazą danych:
+
+```python
+def _get_db_conn():
+    """Create and return a new psycopg2 connection using env vars."""
+    return psycopg2.connect(
+        host=os.getenv("PG_HOST"),
+        port=int(os.getenv("PG_PORT", "5432")),
+        dbname=os.getenv("PG_DATABASE"),
+        user=os.getenv("PG_USER"),
+        password=os.getenv("PG_PASSWORD"),
+    )
+```
+
+5. Zdefiniuj funkcję realizującą wyszukiwanie wektorowe:
+
+```python
+def vector_search(
+    query: str,
+    table: str = "policies",
+    id_column: str = "polisa_id",
+    content_column: str = "opis",
+) -> List[Dict]:
+    """Perform a vector similarity search against an Azure PostgreSQL DB with `pgvector`.
+
+    - `query`: text to search for. 
+    - Returns a list of dicts with `id`, `content`.
+    """
+    conn = _get_db_conn()
+    try:
+        with conn.cursor() as cur:
+            q = sql.SQL(
+                "SELECT {id_col}, {content_col} "
+                "FROM {table} "
+                "ORDER BY embedding <#> azure_openai.create_embeddings('text-embedding-ada-002', {query})::vector "
+                "LIMIT 1"
+            ).format(
+                id_col=sql.Identifier(id_column),
+                content_col=sql.Identifier(content_column),
+                query=sql.Literal(query),
+                table=sql.Identifier(table),
+            )
+
+            cur.execute(q)
+            rows = cur.fetchall()
+
+            results = []
+            for r in rows:
+                results.append({"id": r[0], "content": r[1]})
+
+            return results
+    finally:
+        conn.close()
+```
+
+6. Oraz obsługę żądania HTTP:
+
+```python
+@app.route(route="get_policies", methods=("GET","POST"))
+def get_policies(req: func.HttpRequest) -> func.HttpResponse:
+    logging.info('Python HTTP trigger function processed a request.')
+
+    try:
+        params = req.get_json()
+    except Exception:
+        params = {}
+
+    query = req.params.get("q") or req.params.get("query") or params.get("q") or params.get("query")
+    if not query:
+        return func.HttpResponse("Missing 'query' parameter", status_code=400)
+    
+    try:
+        results = vector_search(query)
+    except Exception as e:
+        logging.exception("vector_search failed")
+        return func.HttpResponse(str(e), status_code=500)
+
+    return func.HttpResponse(json.dumps(results), mimetype="application/json", status_code=200)
+```
+
+7. Zwróć uwagę na wymagane moduły:
+
+```python
+azure-functions
+psycopg2-binary
+```
+
+8. Wykonaj deploy kodu do zasobu Azure Function.
+9. Znajdź i otwórz w portalu zasób Azure Function.
+10. W opcji "Settings" -> "Environment variables", na zakładce "App settings" stwórz ustawienia:
+    - PG_HOST
+    - PG_PORT (domyślnie 5432)
+    - PG_DATABASE
+    - PG_USER
+    - PG_PASSWORD
+
+11. Przetestuj działanie funkcji w "Overview" -> "Functions" -> (nazwa funkcji) -> "Code+Test" -> opcja "Test/Run". Podaj parametr żądania "query" wpisując np. "polisa samochodowa". Wykonanie powinno zwrócić wynik oraz rezultat HTTP 200.
+
+### 12.4 Tworzenie API
+
+Wykonaj analogicznie jak w punktach 1.4, 1.5, wskazując endpoint utworzonej funkcji.
+
+### 12.5 Udostępnianie API jako MCP
+
+Wykonaj analogicznie jak w sekcji 11.
+
+## 13 [zadania dodatkowe - poza APIM] Data Agent w Microsoft Fabric
+
+### 13.1 Konfiguracja Microsoft Fabric
+
+1. Jeśli nie masz jeszcze zasobu Microsoft Fabric (Fabric Capacity), utwórz go:
+    - Wyszukaj "Microsoft Fabric" w Azure Portal
+    - Kliknij "+ Create"
+    - Wypełnij formularz i utwórz zasób (SKU: F2)
+2. Przejdź do strony zasobu w portalu. Jeśli Capacity jest wyłączone, kliknij "Resume".
+3. Przejdź do Microsoft Fabric w oddzielnej zakładce przeglądarki (https://app.fabric.microsoft.com/).
+4. Utwórz nowy obszar roboczy (workspace) "Workspaces" -> "New workspace". W zakładce "Advanced" wybierz "Fabric capacity".
+
+### 13.2 Konfiguracja Mirroringu Azure Database for PostgreSQL <-> Microsoft Fabric
+
+1. Przejdź do strony zasobu Azure Database for PostgreSQL.
+2. Przejdź do zakładki "Fabric mirroring" kliknij "Get started".
+3. Z listy dostępnych baz danych wybierz "postgres" a dalej kliknij "Prepare".
+4. Zasób zmieni konfigurację aby uruchomić możliwość mirroringu do Microsoft Fabric. W tym czasie serwer może się zrestartować. Po zakończeniu procesu w zakładce "Fabric mirroring" widoczna będzie informacja "Server readiness": "Server is ready for mirroring".
+5. Przejdź do Microsoft Fabric, do utworzonego obszaru roboczego.
+6. Kliknij "New item" i z listy obiektów wybierz "Mirrored Azure Database for PostgreSQL (preview)".
+7. W kolejnym oknie dialogowym kliknij nazwę konektora "Azure Database for PostgreSQL".
+8. Podaj parametry połączenia.
+9. W oknie dialogowym "Choose data" wybierz tabelę ("public.policies") do replikacji. Zignoruj ostrzeżenia o niekompatybilnym typie wektorowym.
+10. Kliknij "Connect", a następnie nazwij nowy obiekt. Kliknij "Create mirrored database".
+11. Po chwili utworzony zostanie obiekt typu "Mirrored database". Otwórz go i zweryfikuj czy replikacja działa poprawnie (status zsynchronizowanych rekordów).
+
+### 13.3 Tworzenie Data Agent w Microsoft Fabric
+
+1. W obszarze roboczym kliknij "New item" i wybierz "Data agent (preview)". Podaj nazwę obiektu, kliknij "Create".
+2. W oknie dialogowym agenta, w zakładce "Explorer" kliknij "+ Data source" i wybierz utworzoną "Mirrored database". Kliknij "Add".
+3. W zakładce "Explorer" zaznacz tabelę "policies" jako źródło danych dla agenta.
+4. Kliknij opcję "Agent instructions".
+5. W nowym oknie podaj instrukcje dla agenta (Markdown):
+
+```txt
+
+# Microsoft Fabric Data Agent – Insurance Advisor (Instructions)
+
+## 0) Agent Role & Objective
+You are the “Insurance Advisor” for our organization. 
+Your job is to: (a) understand a customer’s profile and needs; (b) search governed policy data; 
+(c) recommend one or more suitable policies with clear reasoning; (d) return a concise, structured answer that an advisor can share with a customer.
+
+Always respect security trimming and only query data sources the end user is permitted to access.
+
+---
+
+## 1) Data Sources & Preferred Routing
+Use these data sources in order of preference:
+
+1. Table `policies`:
+   - Use for raw policy metadata.
+
+---
+
+## 2) Canonical Schema Notes (for NL→SQL)
+- `policies(polisa_id, rodzaj_polisy, pakiet, cena, opis)`
+- `premium_rates(rodzaj_polisy, pakiet)`
+- `eligibility_rules(rodzaj_polisy)`
+
+Use exact column names; prefer filters on `rodzaj_polisy` and `pakiet`. 
+When joining, key is `rodzaj_polisy` (and `pakiet` where applicable).
+
+---
+
+## 3) Business Rules for Recommendations
+Apply these rules before proposing results:
+
+A. Eligibility (hard filters)
+- Health (“zdrowotna”): age ≥ 18; if pre‑existing conditions flagged, include riders in coverage_options.
+- Auto (“samochodowa”): requires `requires_vehicle = true`; check region_allow.
+- Travel (“turystyczna”): if travel_frequency ≥ 2 trips/quarter → prefer “premium” pack; else “standard”.
+- Home (“mieszkaniowa”): requires property ownership; exclude high‑risk flood zones unless add‑on available.
+- Life (“życie”): age ≤ 70 for standard; >70 → show “senior” variants if present.
+
+
+---
+
+## 4) Output Format (strict)
+Return **only** the following JSON block in a fenced code block, plus a one‑paragraph summary above it:
+
+Summary: 1–2 sentences explaining why the top policy is a fit, in plain language.
+```
+```json
+{
+  "top_recommendation": {
+    "polisa_id": "<string>",
+    "rodzaj_polisy": "<string>",
+    "pakiet": "<string>"
+  },
+  "alternatives": [
+    { "polisa_id":"...", "pakiet":"..." },
+    { "polisa_id":"...", "pakiet":"..." }
+  ],
+  
+}
+```
+
+6. Przetestuj działanie agenta w oknie "Test the agent’s responses" np. "szukam polisy samochodowej".
+7. Opublikuj agenta klikając "Publish".
+
+### 13.4 Udostępnianie Data Agent jako MCP dla Microsoft Foundry
+
+1. W Microsoft Foundry portal (https://ai.azure.com) w New Foundry, utwórz nowego agenta klikając "Start building" -> "Create agent".
+2. Nadaj nazwę np. "agent-polis".
+3. W zakładce "Tools" kliknij "Add" a następnie "Add a new tool".
+4. Wybierz "Fabric Data Agent" a następnie "Add Tool".
+5. W oknie dialogowym konfiguracji połączenia podaj Workspace ID oraz Artifact ID, dostępne do odczytania w Microsoft Fabric w pasku adresu na stronie z utworzonym Data Agent: https://app.fabric.microsoft.com/groups/<workspace-id>/aiskills/<artifact-id>?experience=fabric-developer
+6. Kliknij "Connect".
+7. W oknie "Instructions" podaj instrukcje dla agenta:
+
+```txt
+You are the “Insurance Advisor” for our organization. 
+Your job is to: (a) understand a customer’s profile and needs; (b) search governed policy data; 
+(c) recommend one or more suitable policies with clear reasoning; (d) return a concise, structured answer that an advisor can share with a customer. Make sure that you always use the tools to provide policy data.
+```
+
+8. Zapisz zmiany i przetestuj działanie agenta. W oknie czatu w "Debug" powinno być widoczne odwołanie do Tool Fabric Data Agent.
 
 ## Podsumowanie
 
@@ -798,6 +1135,5 @@ Gratulacje! Stworzyłeś kompletny interfejs API za pomocą Azure API Management
 - Kontroluje ruch za pomocą limitów wywołań
 - Limit tokenów dla zapytań AI
 - Transformuje i anonimizuje dane
-
+- Integruje się z bazą wiedzy w Azure Database for PostgreSQL i korzysta z vector search
 - Jest monitorowany w Application Insights
-
