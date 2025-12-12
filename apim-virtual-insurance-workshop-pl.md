@@ -520,7 +520,7 @@ https://learn.microsoft.com/en-us/azure/api-management/find-and-replace-policy
 
 ### 7.3 Testowanie transformacji i anonimizacji v1
 
-1. Uruchom Azure Logic App tak jak w części 6.2.10 i sprawdź że obecnie "Body" na "Outputs" jest w postaci xml, oraz że id polisy zostało zastąpione z 123456 na xxxxxx.
+1. Uruchom Azure Logic App tak jak w części 6.2.9 i sprawdź że obecnie "Body" na "Outputs" jest w postaci xml, oraz że id polisy zostało zastąpione z 123456 na xxxxxx.
 
 ---
 
@@ -548,7 +548,7 @@ https://learn.microsoft.com/en-us/azure/api-management/api-management-policy-exp
 
 ### 7.5 Testowanie transformacji i anonimizacji v2
 
-1. Uruchom Azure Logic App tak jak w części 6.2.10 i sprawdź że obecnie "Body" na "Outputs" jest w postaci xml, oraz że wszystkie id polisy zostały zastąpione z 123456 oraz 123457 na xxxxxx.
+1. Uruchom Azure Logic App tak jak w części 6.2.9 i sprawdź że obecnie "Body" na "Outputs" jest w postaci xml, oraz że wszystkie id polisy zostały zastąpione z 123456 oraz 123457 na xxxxxx.
 
 ## 8. MONITOROWANIE I DIAGNOSTYKA W APIM
 
@@ -628,17 +628,13 @@ Pełna polityka powinna wyglądać następująco:
             <metadata name="Subscription-Id" value="@(context.Subscription?.Id ?? "anonymous")" />
             <metadata name="correlation-id" value="@((string)context.Variables["correlation-id"])" />
         </trace>
-        <validate-azure-ad-token tenant-id="xxxxxxxxxxx">
+        <validate-azure-ad-token tenant-id="xxxxxxxxxxxxxxxxxxxx">
             <client-application-ids>
-                <application-id>xxxxxxxxxxx</application-id>
+                <application-id>xxxxxxxxxxxxxxxx</application-id>
             </client-application-ids>
         </validate-azure-ad-token>
         <azure-openai-token-limit counter-key="@(context.Subscription.Id)" tokens-per-minute="10000" estimate-prompt-tokens="true" />
-        <set-backend-service id="apim-generated-policy" backend-id="polisy-ai-openai-endpoint" />
-        <authentication-managed-identity resource="https://cognitiveservices.azure.com" output-token-variable-name="managed-id-access-token" ignore-error="false" />
-        <set-header name="Authorization" exists-action="override">
-            <value>@("Bearer " + (string)context.Variables["managed-id-access-token"])</value>
-        </set-header>
+        <set-backend-service id="apim-generated-policy" backend-id="polisy-ai-ai-endpoint" />
     </inbound>
     <backend>
         <base />
