@@ -458,6 +458,7 @@ Pełna polityka powinna wyglądać następująco:
 4. W polu "Operation Id" wybierz "Creates a completion for the chat message".
 5. W polu "Deployment-ID" wpisz "gpt-4o-mini" lub inny model który jest dostępny w Azure Open AI.
 6. W polu "api-version" wpisz "2024-05-01-preview".
+7. W polu "Advanced parameters" zaznacz "Authentication", "Subscription key" oraz "body"
 7. W polu "Body" wpisz
 
 ```
@@ -475,9 +476,8 @@ Pełna polityka powinna wyglądać następująco:
 }
 ```
 
-8. W polu "Advanced parameters" zaznacz "Authentication" oraz "Subscription key". W części "Authentication Types" wybierz "Managed identity" w części "Managed identity" wybierz "System-assigned managed identity", następnie w polu Audience wpisz https://management.azure.com/. W polu "Subscription key" wpisz klucz który wygenerowałeś w punkcie "3.1".
-9. Zmień ustawienia pierwszej akcji o nazwie "polisyapi", aby wykorzystywała "System-assigned managed identity".
-10. Sprawdź działanie Azure Logic App, wybierz przycisk "Run" a następnie "Run with payload". W sekcji "Body" wprowadź poniższy kod
+8. W części "Authentication Types" wybierz "Managed identity" w części "Managed identity" wybierz "System-assigned managed identity", następnie w polu Audience wpisz https://management.azure.com/. W polu "Subscription key" wpisz klucz który wygenerowałeś w punkcie "3.1".
+9. Sprawdź działanie Azure Logic App, wybierz przycisk "Run" a następnie "Run with payload". W sekcji "Body" wprowadź poniższy kod
 
 ```
 {
