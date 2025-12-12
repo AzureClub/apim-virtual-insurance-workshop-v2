@@ -67,7 +67,7 @@ Dla naszego API będziemy używać następującego modelu danych polisy:
 3. Kliknij "+ Add API" i wybierz "HTTP API"
 4. Wypełnij formularz:
     - **Display name**: PolisyAPI
-    - **Name**: polisy-api
+    - **Name**: polisyapi
     - **Web service URL**: można tymczasowo wpisać "https://example.org"
     - **API URL suffix**: polisy
 5. Kliknij "Create"
@@ -143,7 +143,7 @@ https://learn.microsoft.com/en-us/azure/api-management/azure-openai-api-from-spe
 5. Zaznacz opcję "Track token usage" (potrzebne do rozliczalności) - zaposnaj się z linkami https://learn.microsoft.com/en-us/azure/api-management/azure-openai-emit-token-metric-policy oraz https://learn.microsoft.com/en-us/azure/api-management/azure-openai-token-limit-policy
 
 6. Wybierz dostępną instancję Application Insights jako miejsce do odkładania metryk tokenów
-7. W opcji "dimension" wybierz: User ID, API ID, Subscription ID
+7. W opcji "dimension" wybierz: API ID, Subscription ID, Operation ID
 8. Kliknij "Next" - zapoznaj się z opcją "Semantic caching"
 https://learn.microsoft.com/en-us/azure/api-management/azure-openai-enable-semantic-caching
 9. Kliknij "Next" - zapoznaj się z opcją "AI content safety"
@@ -151,7 +151,20 @@ https://learn.microsoft.com/en-us/azure/api-management/llm-content-safety-policy
 10. Kliknij "Next"
 11. kliknij "Create"
 
-Samo skonfigurowanie "Track token usage" nie wystraczy aby metryki pojawiły się w "Application Insight" nalezy jeszcze
+Samo skonfigurowanie "Track token usage" nie wystraczy aby metryki pojawiły się w "Application Insight" nalezy jeszcze wykonać konfiguracje z linka poniżej https://learn.microsoft.com/en-us/azure/api-management/api-management-howto-app-insights?tabs=rest takie jak "Create a connection between Application Insights and API Management", "Enable Application Insights logging for your API" jak również uruchomienie "Emit custom metrics". Dla ułatwienia ustawienie opcji "metrics" możesz zrobić poprzez cloudshell https://shell.azure.com
+
+```
+az rest --method put \
+  --url "https://management.azure.com/subscriptions/{SubscriptionId}/resourceGroups/{ResourceGroupName}/providers/Microsoft.ApiManagement/service/{APIManagementServiceName}/diagnostics/applicationinsights?api-version=2025-03-01-preview" \
+  --body '{
+    "properties": {
+      "loggerId": "/subscriptions/{SubscriptionId}/resourceGroups/{ResourceGroupName}/providers/Microsoft.ApiManagement/service/{APIManagementServiceName}/loggers/{ApplicationInsightsLoggerName}",
+      "metrics": true
+    }
+  }'
+```
+
+Metryki możesz zobaczyć w "Log Analytics" wpisując w "Search" zapytanie "customMetrics".
 
 ### 2.2 Testowanie dostępności OpenAI API
 
@@ -183,16 +196,16 @@ Samo skonfigurowanie "Track token usage" nie wystraczy aby metryki pojawiły si�
 4. Upewnij się że w "Header name" wartość to "Ocp-Apim-Subscription-Key" a w "Query parameter name" widnieje wartość "subscription-key"
 5. Kliknij "Save"
 
-### 2.4 Dodawanie uwierzytelniania Managed Identity do OpenAI
+### 2.4 Dodawanie uwierzytelniania Managed Identity do Microsoft Foundry
 
 https://learn.microsoft.com/en-us/azure/api-management/api-management-howto-use-managed-service-identity
 
-Sprawdź czy został włączony dla "API Management" "system managed identity" i czy zostało nadane uprawnienie dla tej tożsamości do "Azure Open AI". "Managed Identity" powinno zostać utworzone podczas tworzenia API Managemnt, rola powinna zostać nadana podczas dodawania API "polisy-ai".
+Sprawdź czy został włączony dla "API Management" "system managed identity" i czy zostało nadane uprawnienie dla tej tożsamości do "Microsoft Foundry". "Managed Identity" powinno zostać utworzone podczas tworzenia API Managemnt, rola powinna zostać nadana podczas dodawania API "polisy-ai".
 
 1. Przejdź do swojego API Management
 2. W menu bocznym wybierz "Managed identities"
 3. Włącz opcję "System assigned" i kliknij "Save"
-4. Przejdź do zasobu Azure OpenAI
+4. Przejdź do zasobu Microsoft Foundry
 5. Wybierz "Access control (IAM)"
 6. Kliknij "+ Add" i wybierz "Add role assignment"
 7. Wybierz rolę "Cognitive Services OpenAI User"
@@ -210,12 +223,13 @@ https://learn.microsoft.com/en-us/azure/api-management/api-management-subscripti
 1. W zasobie API Management przejdź do sekcji "Subscriptions"
 2. Stwórz nową subskrypcję klikając "+ Add":
     - **Name**: WorkshopSubscription
+    - **Display name**: WorkshopSubscription
     - **Scope**: All APIs (lub konkretne API)
 3. Po utworzeniu, kliknij na subskrypcję i skopiuj wygenerowany klucz
 
 ### 3.2 Włączanie wymogu klucza subskrypcji dla API
 
-1. Przejdź do "APIs" i wybierz "Polisy-API"
+1. Przejdź do "APIs" i wybierz "PolisyAPI"
 2. Przejdź do zakładki "Settings"
 3. W sekcji "Subscription" zaznacz opcję "Subscription required"
 4. Upewnij się że w "Header name" wartość to "Ocp-Apim-Subscription-Key" a w "Query parameter name" widnieje wartość "subscription-key"
@@ -453,7 +467,7 @@ Pełna polityka powinna wyglądać następująco:
   "messages": [
     {
       "role": "system",
-      "content": "@{outputs('polisy-api')}"
+      "content": "@{outputs('polisyapi')}"
     },
     {
       "role": "user", 
@@ -464,7 +478,7 @@ Pełna polityka powinna wyglądać następująco:
 ```
 
 8. W polu "Advanced parameters" zaznacz "Authentication" oraz "Subscription key". W części "Authentication Types" wybierz "Managed identity" w części "Managed identity" wybierz "System-assigned managed identity", następnie w polu Audience wpisz https://management.azure.com/. W polu "Subscription key" wpisz klucz który wygenerowałeś w punkcie "3.1".
-9. Zmień ustawienia pierwszej akcji o nazwie "polisy-api", aby wykorzystywała "System-assigned managed identity".
+9. Zmień ustawienia pierwszej akcji o nazwie "polisyapi", aby wykorzystywała "System-assigned managed identity".
 10. Sprawdź działanie Azure Logic App, wybierz przycisk "Run" a następnie "Run with payload". W sekcji "Body" wprowadź poniższy kod
 
 ```
