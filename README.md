@@ -192,11 +192,6 @@ Warsztat implementuje następujące mechanizmy bezpieczeństwa:
 ## 🤝 Wsparcie i community
 
 - 📧 Pytania? Otwórz [Issue](https://github.com/AzureClub/apim-virtual-insurance-workshop-v2/issues)
----
-
-## 📄 Licencja
-
-Ten projekt jest udostępniany na licencji MIT. Zobacz plik `LICENSE` dla szczegółów.
 
 ---
 
