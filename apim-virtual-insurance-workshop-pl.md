@@ -36,9 +36,9 @@ https://learn.microsoft.com/en-us/azure/api-management/get-started-create-servic
 2. Kliknij "+ Create" lub "Utwórz"  
 3. Wypełnij formularz:
     - **Subscription**: wybierz swoją subskrypcję
-    - **Resource Group**: utwórz nową (np. "rg-workshop-apim")
-    - **Region**: wybierz najbliższy (np. France Central)
-    - **Name**: np. "workshop-apim"
+    - **Resource Group**: utwórz nową (np. "rg-azureclubworkshopint-{usernumber}")
+    - **Region**: wybierz najbliższy (np. France Central lub Sweden Central)
+    - **Name**: np. "apim-azureclubworkshopint-{usernumber}"
     - **Organization name**: nazwa Twojej organizacji
     - **Administrator email**: Twój adres email
     - **Pricing tier**: Developer (najtańsza, nieprodukcyjna opcja)
@@ -293,7 +293,7 @@ https://learn.microsoft.com/en-us/entra/identity-platform/quickstart-register-ap
 1. W Azure Portal przejdź do "Microsoft Entra ID"
 2. Wybierz "App registrations" i kliknij "+ New registration"
 3. Wypełnij formularz:
-    - **Name**: PolisyAPI-OAuth-username (wprowadź nazwę swojego użytkownika)
+    - **Name**: PolisyAPI-OAuth-{usernumber} (wprowadź swój numer użytkownika)
     - **Supported account types**: wybierz "Accounts in this organizational directory only"
 4. Kliknij "Register"
 5. Zanotuj wartości "Application (client) ID" oraz "Directory (tenant) ID"
@@ -327,7 +327,7 @@ https://learn.microsoft.com/en-us/azure/logic-apps/quickstart-create-example-con
 4. Wybierz "Select"
 5. Wybierz "Subscription", na której wdrożyłeś API Management
 6. Wybierz "Resource Group", w której wdrożyłeś API Management
-7. W polu "Logic App name" wpisz "la-test01"
+7. W polu "Logic App name" wpisz "la-azureclubworkshopint-{usernumber}"
 8. W polu "Region" wybierz ten sam region, w którym wdrożyłeś API Management.
 9. Kliknij "Review + Create" a następnie "Create".
 10. Po utworzeniu zasobu kliknij "Go to resource".
@@ -356,9 +356,9 @@ https://learn.microsoft.com/en-us/azure/logic-apps/quickstart-create-example-con
 az ad sp show --id '[Object (principal) ID]' | ConvertFrom-Json | select displayName, appId
 ```
 
-1. Przejdź do "Azure Logic App" o nazwie "la-test01".
+1. Przejdź do "Azure Logic App" o nazwie "la-azureclubworkshopint-{usernumber}".
 2. Przejdź do zakładki "Identity", kliknij "System assigned", wybierz "ON", a następnie "Save".
-3. W Entra ID znajdź "Application ID", który dotyczy "Managed Identity" utworzonego dla "Azure Logic App". Przejdź do "Entra ID", następnie "Enterprise applications". W "Application type" wybierz "Managed Identity", wyszukaj nazwę "la-test01". Zanotuj "Application ID".
+3. W Entra ID znajdź "Application ID", który dotyczy "Managed Identity" utworzonego dla "Azure Logic App". Przejdź do "Entra ID", następnie "Enterprise applications". W "Application type" wybierz "Managed Identity", wyszukaj nazwę "la-azureclubworkshopint-{usernumber}". Zanotuj "Application ID".
 
 ### 6.2 Dodawanie polityki limitu tokenów OpenAI
 
@@ -719,30 +719,30 @@ Dla tego zadania wykorzystasz **dwa zasoby Azure AI Foundry (OpenAI)** przygotow
 
 | Backend | Nazwa zasobu | Region | Priorytet | Rola |
 |---------|--------------|--------|-----------|------|
-| **Primary** | `aoai-azureclubworkshopint-{XX}-01` | France Central | 1 | Główny endpoint |
-| **Secondary** | `aoai-azureclubworkshopint-{XX}-02` | Sweden Central | 2 | Backup (failover) |
+| **Primary** | `aoai-azureclubworkshopint-{usernumber}-01` | France Central | 1 | Główny endpoint |
+| **Secondary** | `aoai-azureclubworkshopint-{usernumber}-02` | Sweden Central | 2 | Backup (failover) |
 
-> 📋 **Ściągawka**: Sprawdź dokument z danymi otrzymany od organizatorów. Znajdziesz tam dokładne nazwy zasobów i endpointy dla Twojego numeru `{XX}`.
+> 📋 **Ściągawka**: Sprawdź dokument z danymi otrzymany od organizatorów. Znajdziesz tam dokładne nazwy zasobów i endpointy dla Twojego numeru użytkownika `{usernumber}`.
 
 ### Gdzie znaleźć endpoint Azure AI Foundry?
 
 Jeśli potrzebujesz zweryfikować endpoint:
 
 1. Przejdź do **Azure AI Foundry portal** (https://ai.azure.com)
-2. Znajdź zasób Azure OpenAI (np. `aoai-azureclubworkshopint-{XX}-01`)
+2. Znajdź zasób Azure OpenAI (np. `aoai-azureclubworkshopint-{usernumber}-01`)
 3. W sekcji **Models** → **Deployments** znajdź endpoint
-4. Alternatywnie w **Azure Portal** → **Resource Groups** → `rg-azureclubworkshopint-{XX}` → zasób AI → **Keys and Endpoint**
+4. Alternatywnie w **Azure Portal** → **Resource Groups** → `rg-azureclubworkshopint-{usernumber}` → zasób AI → **Keys and Endpoint**
 
 ### Format URL-i
 
-Zastąp `{XX}` Twoim numerem (np. `05`):
+Zastąp `{usernumber}` Twoim numerem użytkownika (np. `05`):
 
 ```
-Primary:   https://aoai-azureclubworkshopint-{XX}-01.cognitiveservices.azure.com/
-Secondary: https://aoai-azureclubworkshopint-{XX}-02.cognitiveservices.azure.com/
+Primary:   https://aoai-azureclubworkshopint-{usernumber}-01.cognitiveservices.azure.com/
+Secondary: https://aoai-azureclubworkshopint-{usernumber}-02.cognitiveservices.azure.com/
 ```
 
-**Przykład dla numeru 05:**
+**Przykład dla użytkownika 05:**
 ```
 Primary:   https://aoai-azureclubworkshopint-05-01.cognitiveservices.azure.com/
 Secondary: https://aoai-azureclubworkshopint-05-02.cognitiveservices.azure.com/
@@ -761,7 +761,7 @@ W poprzednich zadaniach (sekcja 2) dodałeś do APIM jeden zasób Azure AI Found
 3. Powinieneś zobaczyć backend o nazwie podobnej do `polisy-ai-openai-endpoint` - to Twój **Primary backend** z zadania 2
 4. Kliknij na niego i zanotuj:
    - **Backend name** (np. `polisy-ai-openai-endpoint`)
-   - **Runtime URL** (np. `https://aoai-azureclubworkshopint-{XX}-01.cognitiveservices.azure.com/openai`)
+   - **Runtime URL** (np. `https://aoai-azureclubworkshopint-{usernumber}-01.cognitiveservices.azure.com/openai`)
 
 ### Krok 2: Dodanie drugiego backendu (Secondary)
 
@@ -769,9 +769,9 @@ W poprzednich zadaniach (sekcja 2) dodałeś do APIM jeden zasób Azure AI Found
 2. Wypełnij formularz:
    - **Name**: `polisy-ai-openai-endpoint-secondary`
    - **Type**: Custom URL
-   - **Runtime URL**: `https://aoai-azureclubworkshopint-{XX}-02.cognitiveservices.azure.com/openai`
+   - **Runtime URL**: `https://aoai-azureclubworkshopint-{usernumber}-02.cognitiveservices.azure.com/openai`
      
-     > ⚠️ Zastąp `{XX}` Twoim numerem (np. `05`)
+     > ⚠️ Zastąp `{usernumber}` Twoim numerem użytkownika (np. `05`)
    
 3. W sekcji **"Authorization credentials"**:
    - Zostaw domyślne ustawienia (bez dodatkowej autoryzacji - użyjemy Managed Identity w polityce)
@@ -784,8 +784,8 @@ Po dodaniu, w sekcji **"Backends"** powinieneś widzieć **dwa wpisy**:
 
 | Backend Name | Runtime URL | Rola |
 |-------------|-------------|------|
-| `polisy-ai-openai-endpoint` | `https://aoai-azureclubworkshopint-{XX}-01.cognitiveservices.azure.com/openai` | Primary |
-| `polisy-ai-openai-endpoint-secondary` | `https://aoai-azureclubworkshopint-{XX}-02.cognitiveservices.azure.com/openai` | Secondary |
+| `polisy-ai-openai-endpoint` | `https://aoai-azureclubworkshopint-{usernumber}-01.cognitiveservices.azure.com/openai` | Primary |
+| `polisy-ai-openai-endpoint-secondary` | `https://aoai-azureclubworkshopint-{usernumber}-02.cognitiveservices.azure.com/openai` | Secondary |
 
 > 💡 **Uwaga**: W tym zadaniu Smart Load Balancing nie używamy backendów zdefiniowanych w APIM bezpośrednio (przez `<set-backend-service backend-id="...">`), lecz dynamicznie ustawiamy URL w polityce. Jednak dodanie backendów jest dobrą praktyką dla przejrzystości i ewentualnych przyszłych rozszerzeń.
 
@@ -799,22 +799,22 @@ Upewnij się, że Managed Identity Twojego API Management ma dostęp do **obu** 
 
 Uprawnienia do Primary powinny być już nadane z zadania 2. Możesz to zweryfikować:
 
-1. Przejdź do zasobu Azure AI Foundry **Primary** (np. `aoai-azureclubworkshopint-{XX}-01`)
+1. Przejdź do zasobu Azure AI Foundry **Primary** (np. `aoai-azureclubworkshopint-{usernumber}-01`)
 2. Wybierz **"Access control (IAM)"**
 3. Kliknij **"Role assignments"**
 4. Sprawdź czy Twój APIM ma rolę **"Cognitive Services OpenAI User"**
 
 ### Uprawnienia dla Secondary (nowe)
 
-1. Przejdź do zasobu Azure AI Foundry **Secondary** (np. `aoai-azureclubworkshopint-{XX}-02`)
+1. Przejdź do zasobu Azure AI Foundry **Secondary** (np. `aoai-azureclubworkshopint-{usernumber}-02`)
 2. Wybierz **"Access control (IAM)"**
 3. Kliknij **"+ Add"** i wybierz **"Add role assignment"**
 4. Wybierz rolę **"Cognitive Services OpenAI User"**
 5. W zakładce **"Members"** wybierz **"Managed identity"**
 6. Kliknij **"+ Select members"**
 7. W filtrze "Managed identity" wybierz **"API Management"**
-8. Znajdź i zaznacz swój APIM (np. `apim-azureclubworkshopint-{XX}`)
-9. Kliknij **"Select"**, następnie **"Review + assign"**
+8. Znajdź i zaznacz swój APIM (np. `apim-azureclubworkshopint-{usernumber}`)
+9. Kliknij **"Select"**, następnie **"Review + assign"
 
 > ⚠️ **Ważne**: Bez tego kroku polityka Smart Load Balancing zwróci błąd 401 Unauthorized przy próbie użycia Secondary backendu!
 
@@ -874,7 +874,7 @@ Ta polityka implementuje **automatyczny retry** przy błędach 429/5xx:
                     // Primary backend - Priority 1
                     backends.Add(new JObject()
                     {
-                        { "url", "https://aoai-azureclubworkshopint-{XX}-01.cognitiveservices.azure.com/" },
+                        { "url", "https://aoai-azureclubworkshopint-{usernumber}-01.cognitiveservices.azure.com/" },
                         { "priority", 1},
                         { "isThrottling", false }, 
                         { "retryAfter", DateTime.MinValue } 
@@ -883,7 +883,7 @@ Ta polityka implementuje **automatyczny retry** przy błędach 429/5xx:
                     // Secondary backend - Priority 2 (fallback)
                     backends.Add(new JObject()
                     {
-                        { "url", "https://aoai-azureclubworkshopint-{XX}-02.cognitiveservices.azure.com/" },
+                        { "url", "https://aoai-azureclubworkshopint-{usernumber}-02.cognitiveservices.azure.com/" },
                         { "priority", 2},
                         { "isThrottling", false },
                         { "retryAfter", DateTime.MinValue }
@@ -1098,16 +1098,16 @@ Ta polityka implementuje **automatyczny retry** przy błędach 429/5xx:
 
 ## 10.6 Dostosowanie URL-i backendów
 
-⚠️ **Ważne:** Przed zapisaniem polityki, zastąp placeholder `{XX}` Twoim numerem.
+⚠️ **Ważne:** Przed zapisaniem polityki, zastąp placeholder `{usernumber}` Twoim numerem użytkownika.
 
 1. W sekcji `listBackends` znajdź linie z URL-ami:
    ```csharp
-   { "url", "https://aoai-azureclubworkshopint-{XX}-01.cognitiveservices.azure.com/" },
+   { "url", "https://aoai-azureclubworkshopint-{usernumber}-01.cognitiveservices.azure.com/" },
    ...
-   { "url", "https://aoai-azureclubworkshopint-{XX}-02.cognitiveservices.azure.com/" },
+   { "url", "https://aoai-azureclubworkshopint-{usernumber}-02.cognitiveservices.azure.com/" },
    ```
 
-2. Zastąp `{XX}` Twoim numerem (np. `05`):
+2. Zastąp `{usernumber}` Twoim numerem użytkownika (np. `05`):
    ```csharp
    { "url", "https://aoai-azureclubworkshopint-05-01.cognitiveservices.azure.com/" },
    ...
@@ -1178,9 +1178,9 @@ Polityka Smart Load Balancing dodaje dodatkowe headery do odpowiedzi:
    az login
    ```
 
-3. **Uruchom skrypt testowy** (zastąp `XX` Twoim numerem):
+3. **Uruchom skrypt testowy** (zastąp `usernumber` Twoim numerem użytkownika):
    ```powershell
-   .\scripts\Test-SmartLoadBalancing.ps1 -TeamNumber "XX" -RequestCount 25
+   .\scripts\Test-SmartLoadBalancing.ps1 -UserNumber "usernumber" -RequestCount 25
    ```
 
    > 💡 **Rekomendacja**: Wartość **25 requestów** jest optymalna do przetestowania failover. Przy mniejszej liczbie (np. 10-15) może nie dojść do przekroczenia limitu TPM na Primary, a przy większej test trwa niepotrzebnie długo.
@@ -1193,7 +1193,7 @@ Polityka Smart Load Balancing dodaje dodatkowe headery do odpowiedzi:
 ╚════════════════════════════════════════════════════════════════╝
 
 [CONFIG] Konfiguracja testu:
-  • Zespol:           05
+  • Uzytkownik:       05
   • APIM:             apim-azureclubworkshopint-05
   • Liczba requestow: 25
   • Tryb rownlegly:   True
@@ -1256,7 +1256,7 @@ Polityka Smart Load Balancing dodaje dodatkowe headery do odpowiedzi:
 
 | Parametr | Opis | Domyślna wartość | Rekomendacja |
 |----------|------|------------------|---------------|
-| `-TeamNumber` | Twój numer (wymagany) | - | - |
+| `-UserNumber` | Twój numer użytkownika (wymagany) | - | - |
 | `-RequestCount` | Liczba requestów do wysłania | 20 | **25** |
 | `-Parallel` | Czy wysyłać równolegle | `$true` | `$true` |
 
