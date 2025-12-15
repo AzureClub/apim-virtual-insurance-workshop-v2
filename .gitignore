@@ -1,0 +1,39 @@
+# Credential files - NEVER commit these!
+*.xlsx
+*.csv
+UserCredentials_*.csv
+TemporaryAccessPasses.xlsx
+
+# Output directories with generated team info
+output/
+Scripts/output/
+
+# Backup files
+*.bak
+*.backup
+
+# Log files
+*.log
+
+# Azure Functions
+function/__pycache__/
+function/.venv/
+function/venv/
+function/.python_packages/
+function/local.settings.json
+
+# IDE and editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS files
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Temporary files
+*.tmp
+*.temp

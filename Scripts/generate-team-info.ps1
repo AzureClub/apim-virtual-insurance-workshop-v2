@@ -3,7 +3,7 @@
 # ============================================================
 #
 # Użycie:
-#   ./generate-team-info.ps1 -TeamCount 2
+#   ./generate-team-info.ps1 -StartTeam 4 -EndTeam 40
 #
 # Output:
 #   - Plik CSV z danymi dostępowymi
@@ -13,7 +13,10 @@
 
 param(
     [Parameter(Mandatory=$false)]
-    [int]$TeamCount = 2,
+    [int]$StartTeam = 1,
+    
+    [Parameter(Mandatory=$false)]
+    [int]$EndTeam = 2,
     
     [Parameter(Mandatory=$false)]
     [string]$Prefix = "azureclubworkshopint",
@@ -74,7 +77,7 @@ if (-not (Test-Path $OutputDir)) {
 
 $teamData = @()
 
-for ($i = 1; $i -le $TeamCount; $i++) {
+for ($i = $StartTeam; $i -le $EndTeam; $i++) {
     $teamId = Get-TeamNumber -Number $i
     $names = Get-ResourceNames -TeamId $teamId
     
