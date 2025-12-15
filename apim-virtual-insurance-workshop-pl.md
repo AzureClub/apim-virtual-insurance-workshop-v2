@@ -678,9 +678,951 @@ Na stronie https://learn.microsoft.com/en-us/azure/api-management/api-management
 
 ---
 
-## 10. 
+## 10. Smart Load Balancing dla Azure AI Foundry
 
-Orson
+## Wstęp
+
+Smart Load Balancing różni się od tradycyjnego round-robin poprzez:
+- **Natychmiastowe reagowanie na błędy 429** (Too Many Requests) - bez opóźnień w przełączaniu
+- **Respektowanie nagłówka Retry-After** - automatyczne przywracanie backendów po czasie określonym przez Azure AI Foundry
+- **Grupy priorytetowe** - np. PTU (Provisioned Throughput) jako Priority 1, S0 jako fallback Priority 2
+- **Obsługa błędów 401/5xx** - automatyczne przełączenie na zdrowy backend
+
+**Dokumentacja referencyjna:** https://learn.microsoft.com/en-us/samples/azure-samples/openai-apim-lb/openai-apim-lb/
+
+---
+
+## 10.1 Architektura rozwiązania
+
+```
+                    ┌─────────────────────────────────────────┐
+                    │           APIM Policy                    │
+                    │  ┌─────────────────────────────────┐    │
+                    │  │      listBackends (cached)       │    │
+                    │  │  ┌───────────────────────────┐   │    │
+HTTP Client ───────►│  │  │ Backend 1 (Priority 1)    │   │────► OpenAI Primary
+(skrypt/app)        │  │  │ url, isThrottling         │   │    │
+                    │  │  │ retryAfter                │   │    │
+                    │  │  ├───────────────────────────┤   │    │
+                    │  │  │ Backend 2 (Priority 2)    │   │────► OpenAI Secondary
+                    │  │  │ ...                       │   │    │
+                    │  │  └───────────────────────────┘   │    │
+                    │  └─────────────────────────────────┘    │
+                    └─────────────────────────────────────────┘
+```
+
+---
+
+## 10.2 Twoje zasoby Azure AI Foundry
+
+Dla tego zadania wykorzystasz **dwa zasoby Azure AI Foundry (OpenAI)** przygotowane dla Ciebie:
+
+| Backend | Nazwa zasobu | Region | Priorytet | Rola |
+|---------|--------------|--------|-----------|------|
+| **Primary** | `aoai-azureclubworkshopint-{XX}-01` | France Central | 1 | Główny endpoint |
+| **Secondary** | `aoai-azureclubworkshopint-{XX}-02` | Sweden Central | 2 | Backup (failover) |
+
+> 📋 **Ściągawka**: Sprawdź dokument z danymi otrzymany od organizatorów. Znajdziesz tam dokładne nazwy zasobów i endpointy dla Twojego numeru `{XX}`.
+
+### Gdzie znaleźć endpoint Azure AI Foundry?
+
+Jeśli potrzebujesz zweryfikować endpoint:
+
+1. Przejdź do **Azure AI Foundry portal** (https://ai.azure.com)
+2. Znajdź zasób Azure OpenAI (np. `aoai-azureclubworkshopint-{XX}-01`)
+3. W sekcji **Models** → **Deployments** znajdź endpoint
+4. Alternatywnie w **Azure Portal** → **Resource Groups** → `rg-azureclubworkshopint-{XX}` → zasób AI → **Keys and Endpoint**
+
+### Format URL-i
+
+Zastąp `{XX}` Twoim numerem (np. `05`):
+
+```
+Primary:   https://aoai-azureclubworkshopint-{XX}-01.cognitiveservices.azure.com/
+Secondary: https://aoai-azureclubworkshopint-{XX}-02.cognitiveservices.azure.com/
+```
+
+**Przykład dla numeru 05:**
+```
+Primary:   https://aoai-azureclubworkshopint-05-01.cognitiveservices.azure.com/
+Secondary: https://aoai-azureclubworkshopint-05-02.cognitiveservices.azure.com/
+```
+
+---
+
+## 10.3 Dodanie drugiego backendu Azure AI Foundry do APIM
+
+W poprzednich zadaniach (sekcja 2) dodałeś do APIM jeden zasób Azure AI Foundry jako backend (Primary). Dla Smart Load Balancing potrzebujesz **dwóch backendów**, więc teraz dodamy drugi zasób (Secondary).
+
+### Krok 1: Weryfikacja istniejącego backendu (Primary)
+
+1. Przejdź do swojego **Azure API Management**
+2. W menu bocznym wybierz **"Backends"**
+3. Powinieneś zobaczyć backend o nazwie podobnej do `polisy-ai-openai-endpoint` - to Twój **Primary backend** z zadania 2
+4. Kliknij na niego i zanotuj:
+   - **Backend name** (np. `polisy-ai-openai-endpoint`)
+   - **Runtime URL** (np. `https://aoai-azureclubworkshopint-{XX}-01.cognitiveservices.azure.com/openai`)
+
+### Krok 2: Dodanie drugiego backendu (Secondary)
+
+1. W sekcji **"Backends"** kliknij **"+ Add"**
+2. Wypełnij formularz:
+   - **Name**: `polisy-ai-openai-endpoint-secondary`
+   - **Type**: Custom URL
+   - **Runtime URL**: `https://aoai-azureclubworkshopint-{XX}-02.cognitiveservices.azure.com/openai`
+     
+     > ⚠️ Zastąp `{XX}` Twoim numerem (np. `05`)
+   
+3. W sekcji **"Authorization credentials"**:
+   - Zostaw domyślne ustawienia (bez dodatkowej autoryzacji - użyjemy Managed Identity w polityce)
+   
+4. Kliknij **"Create"**
+
+### Krok 3: Weryfikacja obu backendów
+
+Po dodaniu, w sekcji **"Backends"** powinieneś widzieć **dwa wpisy**:
+
+| Backend Name | Runtime URL | Rola |
+|-------------|-------------|------|
+| `polisy-ai-openai-endpoint` | `https://aoai-azureclubworkshopint-{XX}-01.cognitiveservices.azure.com/openai` | Primary |
+| `polisy-ai-openai-endpoint-secondary` | `https://aoai-azureclubworkshopint-{XX}-02.cognitiveservices.azure.com/openai` | Secondary |
+
+> 💡 **Uwaga**: W tym zadaniu Smart Load Balancing nie używamy backendów zdefiniowanych w APIM bezpośrednio (przez `<set-backend-service backend-id="...">`), lecz dynamicznie ustawiamy URL w polityce. Jednak dodanie backendów jest dobrą praktyką dla przejrzystości i ewentualnych przyszłych rozszerzeń.
+
+---
+
+## 10.4 Nadanie uprawnień Managed Identity do obu zasobów Azure AI Foundry
+
+Upewnij się, że Managed Identity Twojego API Management ma dostęp do **obu** zasobów Azure AI Foundry. W zadaniu 2 nadałeś uprawnienia tylko do Primary - teraz musisz powtórzyć to dla Secondary.
+
+### Uprawnienia dla Primary (weryfikacja)
+
+Uprawnienia do Primary powinny być już nadane z zadania 2. Możesz to zweryfikować:
+
+1. Przejdź do zasobu Azure AI Foundry **Primary** (np. `aoai-azureclubworkshopint-{XX}-01`)
+2. Wybierz **"Access control (IAM)"**
+3. Kliknij **"Role assignments"**
+4. Sprawdź czy Twój APIM ma rolę **"Cognitive Services OpenAI User"**
+
+### Uprawnienia dla Secondary (nowe)
+
+1. Przejdź do zasobu Azure AI Foundry **Secondary** (np. `aoai-azureclubworkshopint-{XX}-02`)
+2. Wybierz **"Access control (IAM)"**
+3. Kliknij **"+ Add"** i wybierz **"Add role assignment"**
+4. Wybierz rolę **"Cognitive Services OpenAI User"**
+5. W zakładce **"Members"** wybierz **"Managed identity"**
+6. Kliknij **"+ Select members"**
+7. W filtrze "Managed identity" wybierz **"API Management"**
+8. Znajdź i zaznacz swój APIM (np. `apim-azureclubworkshopint-{XX}`)
+9. Kliknij **"Select"**, następnie **"Review + assign"**
+
+> ⚠️ **Ważne**: Bez tego kroku polityka Smart Load Balancing zwróci błąd 401 Unauthorized przy próbie użycia Secondary backendu!
+
+---
+
+## 10.5 Konfiguracja polityki Smart Load Balancing
+
+### Kluczowe cechy polityki
+
+Ta polityka implementuje **automatyczny retry** przy błędach 429/5xx:
+
+| Cecha | Opis |
+|-------|------|
+| **Automatyczny retry** | Przy 429 natychmiast wysyła request do innego backendu |
+| **Transparentność dla klienta** | Klient zawsze dostaje 200 (jeśli jakikolwiek backend działa) |
+| **Header `x-retry-count`** | Pokazuje ile retry było potrzebnych |
+| **Header `x-served-by`** | Pokazuje który backend obsłużył request |
+| **Do 3 prób** | Maksymalnie 3 próby zanim zwróci błąd |
+
+### Krok po kroku
+
+> ⚠️ **WAŻNE**: W tym kroku **zastępujesz CAŁĄ dotychczasową politykę** nową wersją. Nie próbuj modyfikować istniejącej polityki - po prostu zaznacz wszystko (Ctrl+A) i wklej nowy kod. Dzięki temu unikniesz problemów z brakującymi elementami.
+
+> 💾 **Opcjonalnie - kopia zapasowa**: Jeśli chcesz mieć możliwość powrotu do poprzedniej wersji polityki, przed zastąpieniem skopiuj obecną zawartość edytora (Ctrl+A, Ctrl+C) i wklej ją do notatnika lub pliku tekstowego (np. `polityka-backup.xml`).
+
+1. Przejdź do **"APIs"** i wybierz **"polisy-ai"**
+2. Przejdź do sekcji **"Inbound processing"**, kliknij w oznaczenie **`</>`**
+3. **Zaznacz CAŁĄ zawartość** edytora (Ctrl+A) i **usuń** ją
+4. Wklej poniższy kod XML (Ctrl+V):
+
+```xml
+<policies>
+    <inbound>
+        <base />
+        
+        <!-- ============================================== -->
+        <!-- SMART LOAD BALANCING - z automatycznym retry -->
+        <!-- ============================================== -->
+        
+        <!-- Inicjalizacja licznika prób (max 3) -->
+        <set-variable name="remainingAttempts" value="@(3)" />
+        
+        <!-- Pobranie listy backendów z cache -->
+        <cache-lookup-value key="@("listBackends-" + context.Api.Id)" variable-name="listBackends" />
+        
+        <choose>
+            <when condition="@(!context.Variables.ContainsKey("listBackends"))">
+                <set-variable name="listBackends" value="@{
+                    // Definicja backendów:
+                    // - url: endpoint Azure AI Foundry
+                    // - priority: 1 = Primary, 2 = Secondary (fallback)
+                    // - isThrottling: czy backend zwraca 429
+                    // - retryAfter: kiedy backend będzie znów dostępny
+
+                    JArray backends = new JArray();
+                    
+                    // Primary backend - Priority 1
+                    backends.Add(new JObject()
+                    {
+                        { "url", "https://aoai-azureclubworkshopint-{XX}-01.cognitiveservices.azure.com/" },
+                        { "priority", 1},
+                        { "isThrottling", false }, 
+                        { "retryAfter", DateTime.MinValue } 
+                    });
+
+                    // Secondary backend - Priority 2 (fallback)
+                    backends.Add(new JObject()
+                    {
+                        { "url", "https://aoai-azureclubworkshopint-{XX}-02.cognitiveservices.azure.com/" },
+                        { "priority", 2},
+                        { "isThrottling", false },
+                        { "retryAfter", DateTime.MinValue }
+                    });
+
+                    return backends;   
+                }" />
+                
+                <cache-store-value key="@("listBackends-" + context.Api.Id)" value="@((JArray)context.Variables["listBackends"])" duration="60" />
+            </when>
+        </choose>
+
+        <!-- Health Check - przywracanie backendów po czasie retryAfter -->
+        <set-variable name="listBackends" value="@{
+            JArray backends = (JArray)context.Variables["listBackends"];
+
+            for (int i = 0; i < backends.Count; i++)
+            {
+                JObject backend = (JObject)backends[i];
+                if (backend.Value<bool>("isThrottling") && DateTime.Now >= backend.Value<DateTime>("retryAfter"))
+                {
+                    backend["isThrottling"] = false;
+                    backend["retryAfter"] = DateTime.MinValue;
+                }
+            }
+            return backends; 
+        }" />
+
+        <!-- Wybór najlepszego backendu (najniższy priorytet spośród zdrowych) -->
+        <set-variable name="backendIndex" value="@{
+            JArray backends = (JArray)context.Variables["listBackends"];
+            int selectedPriority = Int32.MaxValue;
+            List<int> availableBackends = new List<int>();
+
+            for (int i = 0; i < backends.Count; i++)
+            {
+                JObject backend = (JObject)backends[i];
+                if (!backend.Value<bool>("isThrottling"))
+                {
+                    int priority = backend.Value<int>("priority");
+                    if (priority < selectedPriority)
+                    {
+                        selectedPriority = priority;
+                        availableBackends.Clear();
+                        availableBackends.Add(i);
+                    }
+                    else if (priority == selectedPriority)
+                    {
+                        availableBackends.Add(i);
+                    }
+                }
+            }
+
+            if (availableBackends.Count == 0) { return 0; }
+            return availableBackends[new Random().Next(availableBackends.Count)];
+        }" />
+
+        <set-variable name="backendUrl" value="@{
+            JArray backends = (JArray)context.Variables["listBackends"];
+            int index = context.Variables.GetValueOrDefault<int>("backendIndex");
+            return ((JObject)backends[index])["url"].ToString();
+        }" />
+
+        <!-- Managed Identity Authentication -->
+        <authentication-managed-identity resource="https://cognitiveservices.azure.com" output-token-variable-name="msi-access-token" ignore-error="false" />
+        <set-header name="Authorization" exists-action="override">
+            <value>@("Bearer " + (string)context.Variables["msi-access-token"])</value>
+        </set-header>
+
+        <!-- Ustawienie backend URL -->
+        <set-backend-service base-url="@((string)context.Variables["backendUrl"] + "openai")" />
+        
+        <!-- Zapisanie body requestu do ewentualnego retry -->
+        <set-variable name="originalBody" value="@(context.Request.Body.As<string>(preserveContent: true))" />
+
+    </inbound>
+    
+    <backend>
+        <forward-request buffer-request-body="true" />
+    </backend>
+    
+    <outbound>
+        <base />
+        
+        <!-- ============================================== -->
+        <!-- AUTOMATYCZNY RETRY przy 429/5xx               -->
+        <!-- ============================================== -->
+        <choose>
+            <when condition="@(context.Response != null && (context.Response.StatusCode == 429 || context.Response.StatusCode >= 500))">
+                
+                <!-- Oznacz aktualny backend jako throttling -->
+                <set-variable name="listBackends" value="@{
+                    JArray backends = (JArray)context.Variables["listBackends"];
+                    int currentBackendIndex = context.Variables.GetValueOrDefault<int>("backendIndex");
+                    int retryAfter = 10;
+                    
+                    if (context.Response.Headers.ContainsKey("Retry-After"))
+                    {
+                        int.TryParse(context.Response.Headers.GetValueOrDefault("Retry-After", "10"), out retryAfter);
+                    }
+                    
+                    JObject backend = (JObject)backends[currentBackendIndex];
+                    backend["isThrottling"] = true;
+                    backend["retryAfter"] = DateTime.Now.AddSeconds(retryAfter);
+                    return backends;      
+                }" />
+                
+                <cache-store-value key="@("listBackends-" + context.Api.Id)" value="@((JArray)context.Variables["listBackends"])" duration="60" />
+                
+                <!-- Zmniejsz licznik prób -->
+                <set-variable name="remainingAttempts" value="@(context.Variables.GetValueOrDefault<int>("remainingAttempts") - 1)" />
+                
+                <!-- Sprawdź czy są dostępne backendy i czy mamy jeszcze próby -->
+                <choose>
+                    <when condition="@{
+                        int remaining = context.Variables.GetValueOrDefault<int>("remainingAttempts");
+                        if (remaining <= 0) { return false; }
+                        JArray backends = (JArray)context.Variables["listBackends"];
+                        for (int i = 0; i < backends.Count; i++)
+                        {
+                            if (!((JObject)backends[i]).Value<bool>("isThrottling")) { return true; }
+                        }
+                        return false;
+                    }">
+                        
+                        <trace source="Smart-LB">
+                            <message>@("Failover from: " + (string)context.Variables["backendUrl"])</message>
+                        </trace>
+                        
+                        <!-- Wybierz nowy backend -->
+                        <set-variable name="backendIndex" value="@{
+                            JArray backends = (JArray)context.Variables["listBackends"];
+                            int selectedPriority = Int32.MaxValue;
+                            List<int> availableBackends = new List<int>();
+                            
+                            for (int i = 0; i < backends.Count; i++)
+                            {
+                                JObject backend = (JObject)backends[i];
+                                if (!backend.Value<bool>("isThrottling"))
+                                {
+                                    int priority = backend.Value<int>("priority");
+                                    if (priority < selectedPriority)
+                                    {
+                                        selectedPriority = priority;
+                                        availableBackends.Clear();
+                                        availableBackends.Add(i);
+                                    }
+                                    else if (priority == selectedPriority)
+                                    {
+                                        availableBackends.Add(i);
+                                    }
+                                }
+                            }
+                            
+                            if (availableBackends.Count == 0) { return 0; }
+                            return availableBackends[new Random().Next(availableBackends.Count)];
+                        }" />
+
+                        <set-variable name="backendUrl" value="@{
+                            JArray backends = (JArray)context.Variables["listBackends"];
+                            int index = context.Variables.GetValueOrDefault<int>("backendIndex");
+                            return ((JObject)backends[index])["url"].ToString();
+                        }" />
+                        
+                        <!-- Wyślij request do nowego backendu -->
+                        <send-request mode="new" response-variable-name="retryResponse" timeout="60" ignore-error="false">
+                            <set-url>@((string)context.Variables["backendUrl"] + "openai" + context.Request.OriginalUrl.Path.Substring(context.Api.Path.Length) + context.Request.OriginalUrl.QueryString)</set-url>
+                            <set-method>@(context.Request.Method)</set-method>
+                            <set-header name="Authorization" exists-action="override">
+                                <value>@("Bearer " + (string)context.Variables["msi-access-token"])</value>
+                            </set-header>
+                            <set-header name="Content-Type" exists-action="override">
+                                <value>application/json</value>
+                            </set-header>
+                            <set-body>@((string)context.Variables["originalBody"])</set-body>
+                        </send-request>
+                        
+                        <!-- Zastąp odpowiedź odpowiedzią z retry -->
+                        <return-response response-variable-name="retryResponse">
+                            <set-header name="x-served-by" exists-action="override">
+                                <value>@((string)context.Variables["backendUrl"])</value>
+                            </set-header>
+                            <set-header name="x-retry-count" exists-action="override">
+                                <value>@((3 - context.Variables.GetValueOrDefault<int>("remainingAttempts")).ToString())</value>
+                            </set-header>
+                        </return-response>
+                        
+                    </when>
+                </choose>
+                
+            </when>
+        </choose>
+        
+        <!-- Header pokazujący który backend obsłużył request -->
+        <set-header name="x-served-by" exists-action="override">
+            <value>@((string)context.Variables["backendUrl"])</value>
+        </set-header>
+        
+    </outbound>
+    
+    <on-error>
+        <base />
+    </on-error>
+</policies>
+```
+
+5. Kliknij **"Save"**
+
+> ✅ **Gotowe!** Polityka Smart Load Balancing jest teraz aktywna. Przejdź do następnego kroku, aby dostosować URL-e backendów.
+
+---
+
+## 10.6 Dostosowanie URL-i backendów
+
+⚠️ **Ważne:** Przed zapisaniem polityki, zastąp placeholder `{XX}` Twoim numerem.
+
+1. W sekcji `listBackends` znajdź linie z URL-ami:
+   ```csharp
+   { "url", "https://aoai-azureclubworkshopint-{XX}-01.cognitiveservices.azure.com/" },
+   ...
+   { "url", "https://aoai-azureclubworkshopint-{XX}-02.cognitiveservices.azure.com/" },
+   ```
+
+2. Zastąp `{XX}` Twoim numerem (np. `05`):
+   ```csharp
+   { "url", "https://aoai-azureclubworkshopint-05-01.cognitiveservices.azure.com/" },
+   ...
+   { "url", "https://aoai-azureclubworkshopint-05-02.cognitiveservices.azure.com/" },
+   ```
+
+> 📋 **Tip**: Sprawdź ściągawkę otrzymaną od organizatorów - znajdziesz tam dokładne URL-e Twoich zasobów Azure AI Foundry.
+
+---
+
+## 10.7 Przygotowanie do testu - zmniejszenie limitu TPM
+
+Aby przetestować działanie Smart Load Balancing, musimy wywołać błąd 429 (Too Many Requests) na Primary backendu. W tym celu **tymczasowo zmniejszymy limit TPM** na deploymencie Primary do minimalnej wartości.
+
+### Krok 1: Zmniejszenie TPM na Primary OpenAI
+
+1. Przejdź do **Azure AI Foundry portal** (https://ai.azure.com)
+2. Wybierz swój zasób Azure AI Foundry **Primary** (np. `aoai-azureclubworkshopint-XX-01`)
+3. Przejdź do sekcji **Deployments**
+4. Znajdź deployment `gpt-4o-mini` i kliknij na niego
+5. Kliknij **Edit deployment** lub ikonę edycji
+6. W polu **Tokens per Minute Rate Limit** zmień wartość na **1K** (1000)
+7. Kliknij **Save**
+
+> 💡 **Wyjaśnienie**: Limit 1K TPM oznacza ~10-15 krótkich requestów na minutę. Przy intensywnym ruchu szybko osiągniemy limit i otrzymamy błąd 429.
+
+### Krok 2: Weryfikacja limitu Secondary (opcjonalnie)
+
+Upewnij się, że Secondary Azure AI Foundry ma wyższy limit (np. 10K TPM), aby mógł obsłużyć ruch po failover:
+
+1. Przejdź do zasobu Azure AI Foundry **Secondary** (np. `aoai-azureclubworkshopint-XX-02`)
+2. Sprawdź że deployment `gpt-4o-mini` ma limit **10K TPM** lub wyższy
+
+---
+
+## 10.8 Testowanie Smart Load Balancingu
+
+Do testowania Smart Load Balancing użyjemy **skryptu PowerShell** `Test-SmartLoadBalancing.ps1`, który automatycznie:
+- Pobiera token Azure AD z Azure CLI (nie wymaga subscription key!)
+- Wysyła wiele równoległych requestów
+- Wyświetla szczegółowe wyniki z informacją o retry i failover
+
+> ⚠️ **WAŻNE - Wyłączenie wymagania subskrypcji**: Przed uruchomieniem testu upewnij się, że w APIM **wyłączona jest opcja "Subscription required"** dla API `polisy-ai`.
+>
+> **Jak sprawdzić/wyłączyć:**
+> 1. Przejdź do **Azure API Management** → **APIs** → **polisy-ai**
+> 2. Kliknij zakładkę **"Settings"**
+> 3. W sekcji **"Subscription"** odznacz checkbox **"Subscription required"**
+> 4. Kliknij **"Save"**
+>
+> Dzięki temu skrypt może używać tokenu Azure AD zamiast klucza subskrypcji APIM.
+
+### Nowe headery diagnostyczne
+
+Polityka Smart Load Balancing dodaje dodatkowe headery do odpowiedzi:
+
+| Header | Opis | Przykład |
+|--------|------|----------|
+| `x-served-by` | URL backendu który obsłużył request | `https://aoai-azureclubworkshopint-XX-01.cognitiveservices.azure.com/` |
+| `x-retry-count` | Ile retry było potrzebnych (pusty = 0) | `1` (oznacza failover do innego backendu) |
+
+### Uruchomienie testu
+
+1. **Otwórz terminal PowerShell** w katalogu z materiałami warsztatu
+
+2. **Upewnij się, że jesteś zalogowany do Azure:**
+   ```powershell
+   az login
+   ```
+
+3. **Uruchom skrypt testowy** (zastąp `XX` Twoim numerem):
+   ```powershell
+   .\scripts\Test-SmartLoadBalancing.ps1 -TeamNumber "XX" -RequestCount 25
+   ```
+
+   > 💡 **Rekomendacja**: Wartość **25 requestów** jest optymalna do przetestowania failover. Przy mniejszej liczbie (np. 10-15) może nie dojść do przekroczenia limitu TPM na Primary, a przy większej test trwa niepotrzebnie długo.
+
+### Przykładowy output
+
+```
+╔════════════════════════════════════════════════════════════════╗
+║       SMART LOAD BALANCING TEST - Azure API Management         ║
+╚════════════════════════════════════════════════════════════════╝
+
+[CONFIG] Konfiguracja testu:
+  • Zespol:           05
+  • APIM:             apim-azureclubworkshopint-05
+  • Liczba requestow: 25
+  • Tryb rownlegly:   True
+
+[INFO] Pobieranie tokenu Azure AD z Azure CLI...
+[OK] Token Azure AD pobrany
+
+[INFO] Rozpoczynam test...
+
+[MODE] Wysylanie 20 requestow ROWNOLEGLE...
+
+╔════════════════════════════════════════════════════════════════╗
+║                        WYNIKI TESTU                            ║
+╚════════════════════════════════════════════════════════════════╝
+
+[SZCZEGOLY] Wyniki per-request:
+─────────────────────────────────────────────────────────────────
+  Request  1: PRIMARY              
+  Request  2: PRIMARY              
+  Request  3: SECONDARY   (retry: 1)  ← FAILOVER!
+  Request  4: SECONDARY   (retry: 1)  ← FAILOVER!
+  Request  5: PRIMARY              
+  ...
+
+─────────────────────────────────────────────────────────────────
+[STATYSTYKI]
+─────────────────────────────────────────────────────────────────
+  Czas trwania testu:     12.3 sekund
+  Laczna liczba requestow: 20
+
+  PRIMARY (Priority 1):   15 requestow
+  SECONDARY (Priority 2): 5 requestow
+  ERRORS:                 0 requestow
+  Z automatycznym RETRY:  5 requestow
+
+─────────────────────────────────────────────────────────────────
+[PODSUMOWANIE]
+─────────────────────────────────────────────────────────────────
+
+  ✅ SUKCES! Smart Load Balancing DZIALA POPRAWNIE!
+
+  Co sie stalo:
+  • Primary backend osiagnal limit TPM (429)
+  • Polityka automatycznie wykonala RETRY do Secondary
+  • Klient otrzymal odpowiedz 200 OK (nie widzial bledu 429)
+
+  Header 'x-retry-count' pokazuje ile retry bylo potrzebnych.
+```
+
+### Interpretacja wyników
+
+| Wynik | Znaczenie |
+|-------|-----------|
+| `PRIMARY` | Request obsłużony przez Primary (Priority 1) - normalna sytuacja |
+| `SECONDARY (retry: 1)` | Primary zwrócił 429, automatyczny retry do Secondary - **failover zadziałał!** |
+| `ERROR 429` | Wszystkie backendy throttlują - zwiększ limit TPM na Secondary |
+| `ERROR 401` | Problem z Managed Identity - sprawdź uprawnienia APIM do OpenAI |
+
+### Parametry skryptu
+
+| Parametr | Opis | Domyślna wartość | Rekomendacja |
+|----------|------|------------------|---------------|
+| `-TeamNumber` | Twój numer (wymagany) | - | - |
+| `-RequestCount` | Liczba requestów do wysłania | 20 | **25** |
+| `-Parallel` | Czy wysyłać równolegle | `$true` | `$true` |
+
+### Co obserwować w wynikach?
+
+1. **Podstawowe działanie**: Pierwsze requesty powinny trafiać do **PRIMARY**
+2. **Failover**: Gdy Primary osiągnie limit TPM (1K), zobaczysz przełączenie na **SECONDARY** z oznaczeniem `(retry: 1)`
+3. **Automatyczne przywracanie**: Po ~10-60 sekundach Primary wróci do użycia
+
+> 💡 **Kluczowa różnica od tradycyjnego load balancingu**: Dzięki automatycznemu retry, **klient nigdy nie widzi błędu 429** dopóki przynajmniej jeden backend jest dostępny!
+
+---
+
+## 10.9 Obserwacja Load Balancing - metody weryfikacji
+
+Istnieje kilka sposobów obserwacji działania Smart Load Balancing. Poniżej opisujemy wszystkie metody - od najprostszej do najbardziej zaawansowanej.
+
+### Metoda 1: Wyniki skryptu testowego (⭐ REKOMENDOWANA)
+
+**Najłatwiejsza metoda** - skrypt `Test-SmartLoadBalancing.ps1` automatycznie wyświetla:
+
+- **Per-request**: który backend obsłużył każdy request (PRIMARY/SECONDARY)
+- **Failover**: oznaczenie `(retry: X)` gdy nastąpiło automatyczne przełączenie
+- **Statystyki**: podsumowanie ile requestów obsłużył każdy backend
+
+Przykładowy fragment wyniku:
+```
+  Request  1: PRIMARY              
+  Request  2: PRIMARY              
+  Request  3: SECONDARY   (retry: 1)  ← FAILOVER!
+  Request  4: SECONDARY   (retry: 1)  ← FAILOVER!
+  Request  5: PRIMARY              
+```
+
+---
+
+### Metoda 2: Application Insights - Transaction Search
+
+Application Insights zbiera szczegółowe logi z APIM, w tym trace'y i metryki.
+
+1. Przejdź do zasobu **Application Insights** (np. `appi-azureclubworkshopint-XX`)
+2. W menu wybierz **"Investigate"** → **"Transaction search"**
+3. Ustaw zakres czasowy na ostatnie 30 minut
+4. Szukaj requestów do API `polisy-ai`
+5. W szczegółach transakcji znajdziesz:
+   - Request URL (pokazuje backend)
+   - Custom properties z headerami
+   - Trace messages: "Backend throttling detected. Switching to another backend."
+
+---
+
+### Metoda 3: Azure AI Foundry Metrics
+
+Metryki per-zasób Azure AI Foundry pokazują ile requestów obsłużył każdy backend.
+
+1. Przejdź do **Azure AI Foundry portal** (https://ai.azure.com)
+2. Wybierz zasób Azure AI Foundry (Primary lub Secondary)
+3. Przejdź do **Metrics** w menu bocznym
+4. Dodaj metrykę: **"Azure OpenAI Requests"** (nazwa metryki pozostaje taka sama)
+5. Ustaw agregację: **Count**
+6. Zakres: ostatnie 30 minut, granularność 1 minuta
+
+**Interpretacja**:
+- **Primary** (`aoai-azureclubworkshopint-XX-01`): dużo requestów, potem nagły spadek
+- **Secondary** (`aoai-azureclubworkshopint-XX-02`): początkowo 0, potem wzrost (failover)
+
+---
+
+### Metoda 4: Log Analytics - zapytanie KQL (zaawansowane)
+
+> ⚠️ **Wymagana konfiguracja**: Aby korzystać z tej metody, APIM musi mieć włączoną diagnostykę do Log Analytics z logami `GatewayLogs` w trybie **Resource-specific**. 
+> 
+> **Uwaga o opóźnieniach:**
+> - `requests` (Application Insights) - dane dostępne **natychmiast** (~1-2 minuty)
+> - `ApiManagementGatewayLogs` - dane dostępne z opóźnieniem **10-20 minut**
+
+Dla szczegółowej analizy, użyj zapytania KQL:
+
+> ⚠️ **Ważne**: Zapytania do `requests` uruchamiaj w **Application Insights** (`appi-azureclubworkshopint-XX`), a zapytania do `ApiManagementGatewayLogs` w **Log Analytics Workspace** (`log-azureclubworkshopint-XX`).
+>
+> **Różnica nazewnictwa tabel:**
+> | Application Insights | Log Analytics (cross-workspace) |
+> |---------------------|--------------------------------|
+> | `requests` | `AppRequests` |
+> | `timestamp` | `TimeGenerated` |
+> | `url` | `Url` |
+> | `resultCode` | `ResultCode` |
+
+### Zapytania w Application Insights
+
+1. Przejdź do zasobu **Application Insights** (np. `appi-azureclubworkshopint-XX`)
+2. Wybierz **"Logs"** w menu bocznym
+3. Wklej poniższe zapytanie:
+
+**Zapytanie 1: Application Insights - rozkład requestów** (⭐ działa natychmiast):
+
+```kusto
+// Rozkład requestów do API polisy-ai w czasie
+requests
+| where timestamp > ago(2h)
+| where url contains "polisy-ai"
+| summarize RequestCount = count() by bin(timestamp, 1m), resultCode
+| render timechart
+```
+
+### Zapytania w Log Analytics Workspace
+
+1. Przejdź do zasobu **Log Analytics Workspace** (np. `log-azureclubworkshopint-XX`)
+2. Wybierz **"Logs"** w menu bocznym
+3. Wklej poniższe zapytanie:
+
+**Zapytanie 2: APIM Gateway Logs - podsumowanie backendów** (⭐ REKOMENDOWANE, wymaga ~15 min na pojawienie się danych):
+
+> 💡 **Dostosuj zakres czasowy**: Domyślnie zapytania używają `ago(2h)` (ostatnie 2 godziny). Jeśli Twoje testy były wcześniej, zwiększ ten zakres, np. `ago(4h)` lub `ago(6h)`. Każdy uczestnik pracuje w swoim tempie!
+
+```kusto
+// Podsumowanie requestów per backend - WYRAŹNIE pokazuje rozkład!
+ApiManagementGatewayLogs
+| where TimeGenerated > ago(2h)  // ← zmień na ago(4h) lub ago(6h) jeśli potrzebujesz
+| where ApiId == "polisy-ai"
+| extend BackendHost = tostring(split(BackendUrl, "/")[2])
+| summarize RequestCount = count() by BackendHost
+| order by RequestCount desc
+```
+
+**Przykładowy wynik:**
+| BackendHost | RequestCount |
+|-------------|--------------|
+| `aoai-azureclubworkshopint-XX-01.cognitiveservices.azure.com` | 31 |
+| `aoai-azureclubworkshopint-XX-02.cognitiveservices.azure.com` | 9 |
+
+> 👆 **Interpretacja**: Primary (`XX-01`) obsłużył 31 requestów, Secondary (`XX-02`) obsłużył 9 requestów po failover!
+
+**Zapytanie 3: Porównanie latencji między backendami** ⭐:
+
+```kusto
+// Porównanie średniego czasu odpowiedzi (ms) per backend
+ApiManagementGatewayLogs
+| where TimeGenerated > ago(2h)
+| where ApiId == "polisy-ai"
+| extend BackendHost = tostring(split(BackendUrl, "/")[2])
+| summarize 
+    AvgLatency = round(avg(todouble(BackendTime)), 0),
+    MaxLatency = max(todouble(BackendTime)),
+    MinLatency = min(todouble(BackendTime)),
+    RequestCount = count() 
+    by BackendHost
+| order by RequestCount desc
+```
+
+**Przykładowy wynik:**
+| BackendHost | AvgLatency | MaxLatency | MinLatency | RequestCount |
+|-------------|------------|------------|------------|--------------|
+| `XX-01.cognitiveservices.azure.com` | **7653** | 56544 | 197 | 31 |
+| `XX-02.cognitiveservices.azure.com` | **281** | 367 | 257 | 9 |
+
+> 👆 **Interpretacja**: Primary (`XX-01`) ma znacznie wyższą latencję (~7.6s) bo throttluje i czeka na retry. Secondary (`XX-02`) odpowiada szybko (~280ms) bo ma zapas capacity!
+
+---
+
+**Zapytanie 4: Success vs Throttled vs Errors per backend** ⭐:
+
+```kusto
+// Rozkład status codes per backend - pokazuje ile requestów było throttlowanych
+ApiManagementGatewayLogs
+| where TimeGenerated > ago(2h)
+| where ApiId == "polisy-ai"
+| extend BackendHost = tostring(split(BackendUrl, "/")[2])
+| summarize 
+    Success = countif(BackendResponseCode == "200"),
+    Throttled = countif(BackendResponseCode == "429"),
+    Errors = countif(BackendResponseCode != "200" and BackendResponseCode != "429")
+    by BackendHost
+```
+
+**Przykładowy wynik:**
+| BackendHost | Success | Throttled | Errors |
+|-------------|---------|-----------|--------|
+| `XX-01.cognitiveservices.azure.com` | 23 | **8** | 0 |
+| `XX-02.cognitiveservices.azure.com` | 9 | 0 | 0 |
+
+> 👆 **Interpretacja**: Primary (`XX-01`) zwrócił 8 razy błąd 429 (throttling), ale polityka automatycznie wykonała retry do Secondary - dlatego klient zawsze dostał 200!
+
+---
+
+**Zapytanie 5: APIM Gateway Logs - rozkład backendów w czasie** (wykres):
+
+```kusto
+// Rozkład requestów między backendami w czasie (wykres)
+ApiManagementGatewayLogs
+| where TimeGenerated > ago(1h)
+| where ApiId == "polisy-ai"
+| extend BackendHost = tostring(split(BackendUrl, "/")[2])
+| summarize RequestCount = count() by BackendHost, bin(TimeGenerated, 1m)
+| render timechart
+```
+
+> 💡 **Jeśli `ApiManagementGatewayLogs` jest puste**: Tabela tworzy się automatycznie po włączeniu diagnostyki, ale pierwsze dane pojawiają się z opóźnieniem 10-20 minut. Użyj `AppRequests` (w Application Insights) do natychmiastowej weryfikacji.
+
+4. Kliknij **"Run"**
+5. Tabela/wykres pokaże rozkład requestów między backendami
+
+### Zapytanie w Application Insights (podsumowanie)
+
+> ⚠️ **Uwaga**: To zapytanie uruchom w **Application Insights** (`appi-azureclubworkshopint-XX`), nie w Log Analytics!
+>
+> **Różnica nazewnictwa**: W Application Insights tabela nazywa się `requests` (nie `AppRequests`), a kolumny używają camelCase (`timestamp`, `url`, `resultCode`).
+
+**Zapytanie 6: Application Insights - tabela podsumowująca**:
+
+```kusto
+// Podsumowanie requestów per status code
+// URUCHOM W: Application Insights → Logs
+requests
+| where timestamp > ago(2h)
+| where url contains "polisy-ai"
+| summarize 
+    TotalRequests = count(),
+    SuccessfulRequests = countif(resultCode == "200"),
+    FailedRequests = countif(resultCode != "200")
+    by bin(timestamp, 5m)
+| order by timestamp desc
+```
+
+> 💡 **Tip**: Jeśli chcesz widzieć szczegółowe logi z headerami `x-served-by`, użyj **Application Insights → Transaction Search** (Metoda 2) - tam zobaczysz pełne szczegóły każdego requestu.
+
+---
+
+### Podsumowanie metod obserwacji
+
+| Metoda | Łatwość | Szczegółowość | Najlepsze zastosowanie |
+|--------|---------|---------------|------------------------|
+| **Skrypt testowy** | ⭐⭐⭐ Łatwe | Podstawowa | Szybka weryfikacja per-request |
+| **App Insights** | ⭐⭐ Średnie | Średnia | Trace'y i debugging |
+| **OpenAI Metrics** | ⭐⭐ Średnie | Per-zasób | Ogólny obraz obciążenia |
+| **Log Analytics KQL** | ⭐ Zaawansowane | Najwyższa | Szczegółowa analiza i raporty |
+
+---
+
+## 10.10 Przywrócenie normalnego limitu TPM
+
+⚠️ **Po zakończeniu testów**, przywróć normalny limit TPM na Primary:
+
+1. Przejdź do **Azure AI Foundry portal** (https://ai.azure.com)
+2. Wybierz zasób Azure AI Foundry **Primary**
+3. Edytuj deployment `gpt-4o-mini`
+4. Zmień **Tokens per Minute Rate Limit** z powrotem na **10K** lub wyższą wartość
+5. Kliknij **Save**
+
+> 💡 Ten krok jest ważny, aby zapewnić normalną przepustowość dla kolejnych zadań lub użytkowników.
+
+---
+
+## 10.11 Jak działa algorytm Smart Load Balancing
+
+### Przepływ dla każdego requestu:
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                           INBOUND PROCESSING                                 │
+├─────────────────────────────────────────────────────────────────────────────┤
+│  1. Inicjalizacja: remainingAttempts = 3                                    │
+│  2. Pobranie listy backendów z cache (lub inicjalizacja)                   │
+│  3. Health Check - przywracanie backendów po czasie retryAfter             │
+│  4. Wybór backendu z najniższym priorytetem spośród zdrowych               │
+│  5. Zapisanie originalBody (do ewentualnego retry)                         │
+│  6. Forward request do wybranego backendu                                   │
+└─────────────────────────────────────────────────────────────────────────────┘
+                                    │
+                                    ▼
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                          OUTBOUND PROCESSING                                 │
+├─────────────────────────────────────────────────────────────────────────────┤
+│  Response 200?                                                               │
+│       │                                                                      │
+│      YES ──────────────────────► Zwróć odpowiedź klientowi                  │
+│       │                          + header x-served-by                        │
+│      NO (429/5xx)                                                           │
+│       │                                                                      │
+│       ▼                                                                      │
+│  1. Oznacz backend jako throttling                                          │
+│  2. remainingAttempts--                                                     │
+│  3. Czy remainingAttempts > 0 AND są zdrowe backendy?                       │
+│       │                                                                      │
+│      YES ──► Wybierz nowy backend ──► send-request ──► return-response     │
+│       │      + header x-retry-count                                         │
+│      NO                                                                      │
+│       │                                                                      │
+│       ▼                                                                      │
+│  Zwróć oryginalną odpowiedź 429/5xx                                         │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+### Kluczowa różnica: Automatyczny Retry
+
+**Tradycyjny load balancing:**
+- Przy 429 tylko oznacza backend jako throttling
+- Klient dostaje błąd 429
+- Dopiero **następny request** trafi do innego backendu
+
+**Smart Load Balancing (ta polityka):**
+- Przy 429 **natychmiast** wybiera inny backend
+- Wysyła **nowy request** do zdrowego backendu (używając `send-request`)
+- Klient dostaje **200 OK** z odpowiedzią
+- Header `x-retry-count` informuje ile retry było potrzebnych
+
+### Maksymalna liczba prób
+
+Polityka wykonuje **maksymalnie 3 próby**:
+1. Pierwsza próba do Primary (Priority 1)
+2. Jeśli 429 → retry do Secondary (Priority 2) 
+3. Jeśli znów 429 → ostatnia próba
+
+Jeśli wszystkie próby zawiodą lub wszystkie backendy throttlują → klient dostaje błąd.
+
+---
+
+## 10.12 Kluczowe elementy polityki
+
+| Element | Cel |
+|---------|-----|
+| `remainingAttempts` | Licznik prób (max 3) |
+| `listBackends` | Tablica JSON z backendami, priorytetami i statusem |
+| `originalBody` | Zapisane body requestu do retry |
+| `cache-store-value` | Przechowuje stan backendów między requestami |
+| `isThrottling` | Flaga czy backend zwraca 429 |
+| `retryAfter` | Timestamp kiedy backend będzie znów zdrowy |
+| `priority` | Niższa wartość = wyższy priorytet |
+| `send-request` | Wysyła retry request do nowego backendu |
+| `return-response` | Podmienia odpowiedź na wynik retry |
+| `x-served-by` | Header - który backend obsłużył request |
+| `x-retry-count` | Header - ile retry było wykonanych |
+
+---
+
+## 10.13 Rozszerzenia (opcjonalne)
+
+### Dodanie trzeciego backendu
+
+Aby dodać kolejny backend, w sekcji `listBackends` dodaj:
+
+```xml
+backends.Add(new JObject()
+{
+    { "url", "https://aoai-azureclubworkshopint-XX-03.cognitiveservices.azure.com/" },
+    { "priority", 3},
+    { "isThrottling", false },
+    { "retryAfter", DateTime.MinValue }
+});
+```
+
+### Użycie zewnętrznego Redis Cache
+
+Dla środowisk z wieloma instancjami APIM, rozważ użycie zewnętrznego Redis Cache:
+https://learn.microsoft.com/azure/api-management/api-management-howto-cache-external
+
+---
+
+## Podsumowanie
+
+Po wykonaniu tego zadania Twoje API:
+- ✅ Automatycznie przełącza się między backendami Azure AI Foundry
+- ✅ Respektuje limity rate limiting (429)
+- ✅ Wykorzystuje priorytety (PTU przed S0)
+- ✅ Natychmiast reaguje na błędy bez opóźnień
+- ✅ Loguje informacje o failover do Application Insights
 
 ## 11. Udostępnianie API jako MCP dla Agenta w Microsoft Foundry
 
