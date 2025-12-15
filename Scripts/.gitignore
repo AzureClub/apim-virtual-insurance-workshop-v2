@@ -1,0 +1,12 @@
+# Credential files - NEVER commit these!
+*.xlsx
+*.csv
+UserCredentials_*.csv
+TemporaryAccessPasses.xlsx
+
+# Backup files
+*.bak
+*.backup
+
+# Log files
+*.log
