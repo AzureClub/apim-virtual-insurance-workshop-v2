@@ -56,8 +56,8 @@ param(
     [Parameter(Mandatory=$false)]
     [string]$PostgreSQLAdminUser = "workshopadmin",
     
-    [Parameter(Mandatory=$false)]
-    [string]$PostgreSQLAdminPassword = "W0rksh0p!2025#Secure",
+    [Parameter(Mandatory=$true)]
+    [SecureString]$PostgreSQLAdminPassword,
     
     [Parameter(Mandatory=$false)]
     [switch]$WhatIf = $false
@@ -577,7 +577,7 @@ for ($i = $StartTeam; $i -le $EndTeam; $i++) {
                         --name $names.APIM `
                         --resource-group $names.ResourceGroup `
                         --location $Location `
-                        --publisher-email "blamis@microsoft.com" `
+                        --publisher-email "workshop@example.com" `
                         --publisher-name "Workshop" `
                         --sku-name Developer `
                         --enable-managed-identity $true `

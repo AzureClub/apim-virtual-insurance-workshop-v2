@@ -38,6 +38,18 @@ param(
 
 $ErrorActionPreference = "Stop"
 
+# Struktury do zbierania wyników
+$script:Results = @{
+    TeamsProcessed = @()
+    TeamsSkipped = @()
+    RolesAssigned = @()
+    RolesSkipped = @()
+    RolesAlreadyExist = @()
+    DiagnosticsConfigured = @()
+    DiagnosticsSkipped = @()
+    Errors = @()
+}
+
 function Write-Info { param($Message) Write-Host "[INFO] $Message" -ForegroundColor Cyan }
 function Write-Success { param($Message) Write-Host "[OK] $Message" -ForegroundColor Green }
 function Write-Warning { param($Message) Write-Host "[WARN] $Message" -ForegroundColor Yellow }
@@ -112,79 +124,127 @@ for ($i = $StartTeam; $i -le $EndTeam; $i++) {
     $rgExists = az group exists --name $names.ResourceGroup 2>$null
     if ($rgExists -ne "true") {
         Write-Warning "Resource Group $($names.ResourceGroup) nie istnieje, pomijam"
+        $script:Results.TeamsSkipped += "Team $teamId - RG nie istnieje"
         continue
     }
+    
+    $script:Results.TeamsProcessed += "Team $teamId"
     
     # --- Uprawnienia dla użytkownika ---
     if ($users.ContainsKey($teamId)) {
         $userPrincipal = $users[$teamId]
         Write-Info "Nadawanie uprawnień dla użytkownika: $userPrincipal"
         
-        # Owner na Resource Group (pozwala nadawać RBAC - potrzebne do zadania 11.4)
+        # Owner na Resource Group (pozwala nadawać RBAC - potrzebne do zadania 10.4)
         Write-Info "  Owner na Resource Group..."
         if (-not $WhatIf) {
-            try {
-                az role assignment create `
-                    --assignee $userPrincipal `
-                    --role "Owner" `
-                    --scope "/subscriptions/$($account.id)/resourceGroups/$($names.ResourceGroup)" `
-                    --output none 2>$null
-                Write-Success "  Owner nadany"
+            # Sprawdź czy rola już istnieje
+            $existingRole = az role assignment list `
+                --assignee $userPrincipal `
+                --role "Owner" `
+                --scope "/subscriptions/$($account.id)/resourceGroups/$($names.ResourceGroup)" `
+                --query "[].id" -o tsv 2>$null
+            
+            if ($existingRole) {
+                Write-Warning "  Owner już nadany"
+                $script:Results.RolesAlreadyExist += "Team $teamId - User Owner na RG"
             }
-            catch {
-                Write-Warning "  Contributor już istnieje lub błąd: $_"
+            else {
+                try {
+                    az role assignment create `
+                        --assignee $userPrincipal `
+                        --role "Owner" `
+                        --scope "/subscriptions/$($account.id)/resourceGroups/$($names.ResourceGroup)" `
+                        --output none 2>$null
+                    Write-Success "  Owner nadany"
+                    $script:Results.RolesAssigned += "Team $teamId - User Owner na RG"
+                }
+                catch {
+                    Write-Warning "  Błąd: $_"
+                    $script:Results.Errors += "Team $teamId - User Owner: $_"
+                }
             }
         }
         
         # Cognitive Services OpenAI Contributor na AI Foundry Primary
         Write-Info "  Cognitive Services OpenAI Contributor na AI Foundry Primary..."
         if (-not $WhatIf) {
-            try {
-                $openaiPrimaryId = az cognitiveservices account show `
-                    --name $names.OpenAIPrimary `
-                    --resource-group $names.ResourceGroup `
-                    --query id -o tsv 2>$null
+            $openaiPrimaryId = az cognitiveservices account show `
+                --name $names.OpenAIPrimary `
+                --resource-group $names.ResourceGroup `
+                --query id -o tsv 2>$null
+            
+            if ($openaiPrimaryId) {
+                $existingRole = az role assignment list `
+                    --assignee $userPrincipal `
+                    --role "Cognitive Services OpenAI Contributor" `
+                    --scope $openaiPrimaryId `
+                    --query "[].id" -o tsv 2>$null
                 
-                if ($openaiPrimaryId) {
-                    az role assignment create `
-                        --assignee $userPrincipal `
-                        --role "Cognitive Services OpenAI Contributor" `
-                        --scope $openaiPrimaryId `
-                        --output none 2>$null
-                    Write-Success "  AI Foundry Contributor (Primary) nadany"
+                if ($existingRole) {
+                    Write-Warning "  AI Foundry Contributor (Primary) już nadany"
+                    $script:Results.RolesAlreadyExist += "Team $teamId - User OpenAI Contributor (Primary)"
                 }
                 else {
-                    Write-Warning "  AI Foundry Primary nie istnieje"
+                    try {
+                        az role assignment create `
+                            --assignee $userPrincipal `
+                            --role "Cognitive Services OpenAI Contributor" `
+                            --scope $openaiPrimaryId `
+                            --output none 2>$null
+                        Write-Success "  AI Foundry Contributor (Primary) nadany"
+                        $script:Results.RolesAssigned += "Team $teamId - User OpenAI Contributor (Primary)"
+                    }
+                    catch {
+                        Write-Warning "  Błąd: $_"
+                        $script:Results.Errors += "Team $teamId - User OpenAI Contributor Primary: $_"
+                    }
                 }
             }
-            catch {
-                Write-Warning "  Błąd lub już istnieje: $_"
+            else {
+                Write-Warning "  AI Foundry Primary nie istnieje"
+                $script:Results.RolesSkipped += "Team $teamId - User OpenAI Contributor Primary (brak zasobu)"
             }
         }
         
         # Cognitive Services OpenAI Contributor na AI Foundry Secondary
         Write-Info "  Cognitive Services OpenAI Contributor na AI Foundry Secondary..."
         if (-not $WhatIf) {
-            try {
-                $openaiSecondaryId = az cognitiveservices account show `
-                    --name $names.OpenAISecondary `
-                    --resource-group $names.ResourceGroup `
-                    --query id -o tsv 2>$null
+            $openaiSecondaryId = az cognitiveservices account show `
+                --name $names.OpenAISecondary `
+                --resource-group $names.ResourceGroup `
+                --query id -o tsv 2>$null
+            
+            if ($openaiSecondaryId) {
+                $existingRole = az role assignment list `
+                    --assignee $userPrincipal `
+                    --role "Cognitive Services OpenAI Contributor" `
+                    --scope $openaiSecondaryId `
+                    --query "[].id" -o tsv 2>$null
                 
-                if ($openaiSecondaryId) {
-                    az role assignment create `
-                        --assignee $userPrincipal `
-                        --role "Cognitive Services OpenAI Contributor" `
-                        --scope $openaiSecondaryId `
-                        --output none 2>$null
-                    Write-Success "  AI Foundry Contributor (Secondary) nadany"
+                if ($existingRole) {
+                    Write-Warning "  AI Foundry Contributor (Secondary) już nadany"
+                    $script:Results.RolesAlreadyExist += "Team $teamId - User OpenAI Contributor (Secondary)"
                 }
                 else {
-                    Write-Warning "  AI Foundry Secondary nie istnieje"
+                    try {
+                        az role assignment create `
+                            --assignee $userPrincipal `
+                            --role "Cognitive Services OpenAI Contributor" `
+                            --scope $openaiSecondaryId `
+                            --output none 2>$null
+                        Write-Success "  AI Foundry Contributor (Secondary) nadany"
+                        $script:Results.RolesAssigned += "Team $teamId - User OpenAI Contributor (Secondary)"
+                    }
+                    catch {
+                        Write-Warning "  Błąd: $_"
+                        $script:Results.Errors += "Team $teamId - User OpenAI Contributor Secondary: $_"
+                    }
                 }
             }
-            catch {
-                Write-Warning "  Błąd lub już istnieje: $_"
+            else {
+                Write-Warning "  AI Foundry Secondary nie istnieje"
+                $script:Results.RolesSkipped += "Team $teamId - User OpenAI Contributor Secondary (brak zasobu)"
             }
         }
     }
@@ -192,18 +252,17 @@ for ($i = $StartTeam; $i -le $EndTeam; $i++) {
     # --- Uprawnienia dla Managed Identity APIM ---
     Write-Info "Nadawanie uprawnień dla Managed Identity APIM..."
     if (-not $WhatIf) {
-        try {
-            # Pobierz Principal ID Managed Identity APIM
-            $apimPrincipalId = az apim show `
-                --name $names.APIM `
-                --resource-group $names.ResourceGroup `
-                --query identity.principalId -o tsv 2>$null
-            
-            if (-not $apimPrincipalId) {
-                Write-Warning "  APIM nie istnieje lub nie ma Managed Identity"
-                continue
-            }
-            
+        # Pobierz Principal ID Managed Identity APIM
+        $apimPrincipalId = az apim show `
+            --name $names.APIM `
+            --resource-group $names.ResourceGroup `
+            --query identity.principalId -o tsv 2>$null
+        
+        if (-not $apimPrincipalId) {
+            Write-Warning "  APIM nie istnieje lub nie ma Managed Identity"
+            $script:Results.RolesSkipped += "Team $teamId - APIM MI (brak APIM/MI)"
+        }
+        else {
             Write-Info "  APIM Principal ID: $apimPrincipalId"
             
             # Cognitive Services OpenAI User na AI Foundry Primary
@@ -214,13 +273,36 @@ for ($i = $StartTeam; $i -le $EndTeam; $i++) {
                 --query id -o tsv 2>$null
             
             if ($openaiPrimaryId) {
-                az role assignment create `
-                    --assignee-object-id $apimPrincipalId `
-                    --assignee-principal-type ServicePrincipal `
+                $existingRole = az role assignment list `
+                    --assignee $apimPrincipalId `
                     --role "Cognitive Services OpenAI User" `
                     --scope $openaiPrimaryId `
-                    --output none 2>$null
-                Write-Success "  APIM -> AI Foundry Primary: OK"
+                    --query "[].id" -o tsv 2>$null
+                
+                if ($existingRole) {
+                    Write-Warning "  APIM -> AI Foundry Primary już nadany"
+                    $script:Results.RolesAlreadyExist += "Team $teamId - APIM OpenAI User (Primary)"
+                }
+                else {
+                    try {
+                        az role assignment create `
+                            --assignee-object-id $apimPrincipalId `
+                            --assignee-principal-type ServicePrincipal `
+                            --role "Cognitive Services OpenAI User" `
+                            --scope $openaiPrimaryId `
+                            --output none 2>$null
+                        Write-Success "  APIM -> AI Foundry Primary: OK"
+                        $script:Results.RolesAssigned += "Team $teamId - APIM OpenAI User (Primary)"
+                    }
+                    catch {
+                        Write-Warning "  Błąd: $_"
+                        $script:Results.Errors += "Team $teamId - APIM OpenAI User Primary: $_"
+                    }
+                }
+            }
+            else {
+                Write-Warning "  AI Foundry Primary nie istnieje - pomijam APIM MI"
+                $script:Results.RolesSkipped += "Team $teamId - APIM OpenAI User Primary (brak zasobu)"
             }
             
             # Cognitive Services OpenAI User na AI Foundry Secondary
@@ -231,17 +313,37 @@ for ($i = $StartTeam; $i -le $EndTeam; $i++) {
                 --query id -o tsv 2>$null
             
             if ($openaiSecondaryId) {
-                az role assignment create `
-                    --assignee-object-id $apimPrincipalId `
-                    --assignee-principal-type ServicePrincipal `
+                $existingRole = az role assignment list `
+                    --assignee $apimPrincipalId `
                     --role "Cognitive Services OpenAI User" `
                     --scope $openaiSecondaryId `
-                    --output none 2>$null
-                Write-Success "  APIM -> AI Foundry Secondary: OK"
+                    --query "[].id" -o tsv 2>$null
+                
+                if ($existingRole) {
+                    Write-Warning "  APIM -> AI Foundry Secondary już nadany"
+                    $script:Results.RolesAlreadyExist += "Team $teamId - APIM OpenAI User (Secondary)"
+                }
+                else {
+                    try {
+                        az role assignment create `
+                            --assignee-object-id $apimPrincipalId `
+                            --assignee-principal-type ServicePrincipal `
+                            --role "Cognitive Services OpenAI User" `
+                            --scope $openaiSecondaryId `
+                            --output none 2>$null
+                        Write-Success "  APIM -> AI Foundry Secondary: OK"
+                        $script:Results.RolesAssigned += "Team $teamId - APIM OpenAI User (Secondary)"
+                    }
+                    catch {
+                        Write-Warning "  Błąd: $_"
+                        $script:Results.Errors += "Team $teamId - APIM OpenAI User Secondary: $_"
+                    }
+                }
             }
-        }
-        catch {
-            Write-Error "  Błąd nadawania uprawnień APIM: $_"
+            else {
+                Write-Warning "  AI Foundry Secondary nie istnieje - pomijam APIM MI"
+                $script:Results.RolesSkipped += "Team $teamId - APIM OpenAI User Secondary (brak zasobu)"
+            }
         }
     }
     
@@ -267,10 +369,10 @@ for ($i = $StartTeam; $i -le $EndTeam; $i++) {
                 
                 if ($existingDiag) {
                     Write-Warning "  Diagnostic setting już istnieje, pomijam"
+                    $script:Results.DiagnosticsSkipped += "Team $teamId - już skonfigurowane"
                 }
                 else {
                     # Utwórz diagnostic setting z Gateway Logs (Resource-specific mode)
-                    # Resource-specific tworzy dedykowaną tabelę ApiManagementGatewayLogs
                     az monitor diagnostic-settings create `
                         --name "apim-gateway-logs" `
                         --resource $apimId `
@@ -279,14 +381,17 @@ for ($i = $StartTeam; $i -le $EndTeam; $i++) {
                         --export-to-resource-specific true `
                         --output none
                     Write-Success "  APIM Gateway Logs -> Log Analytics (Resource-specific): OK"
+                    $script:Results.DiagnosticsConfigured += "Team $teamId"
                 }
             }
             else {
                 Write-Warning "  APIM lub Log Analytics nie istnieje"
+                $script:Results.DiagnosticsSkipped += "Team $teamId - brak APIM/Log Analytics"
             }
         }
         catch {
             Write-Warning "  Błąd konfiguracji diagnostyki: $_"
+            $script:Results.Errors += "Team $teamId - Diagnostics: $_"
         }
     }
 }
@@ -307,16 +412,30 @@ if ($users.Count -gt 0) {
         Write-Info "Nadawanie Cognitive Services Usages Reader dla: $userPrincipal"
         
         if (-not $WhatIf) {
-            try {
-                az role assignment create `
-                    --assignee $userPrincipal `
-                    --role "Cognitive Services Usages Reader" `
-                    --scope "/subscriptions/$($account.id)" `
-                    --output none 2>$null
-                Write-Success "  Cognitive Services Usages Reader nadany"
+            $existingRole = az role assignment list `
+                --assignee $userPrincipal `
+                --role "Cognitive Services Usages Reader" `
+                --scope "/subscriptions/$($account.id)" `
+                --query "[].id" -o tsv 2>$null
+            
+            if ($existingRole) {
+                Write-Warning "  Cognitive Services Usages Reader już nadany"
+                $script:Results.RolesAlreadyExist += "$($entry.Key) - Usages Reader (subskrypcja)"
             }
-            catch {
-                Write-Warning "  Rola już istnieje lub błąd: $_"
+            else {
+                try {
+                    az role assignment create `
+                        --assignee $userPrincipal `
+                        --role "Cognitive Services Usages Reader" `
+                        --scope "/subscriptions/$($account.id)" `
+                        --output none 2>$null
+                    Write-Success "  Cognitive Services Usages Reader nadany"
+                    $script:Results.RolesAssigned += "$($entry.Key) - Usages Reader (subskrypcja)"
+                }
+                catch {
+                    Write-Warning "  Błąd: $_"
+                    $script:Results.Errors += "$($entry.Key) - Usages Reader: $_"
+                }
             }
         }
     }
@@ -325,8 +444,124 @@ else {
     Write-Warning "Brak użytkowników - pomiń nadawanie Cognitive Services Usages Reader"
 }
 
+# ============================================================
+# RAPORT KOŃCOWY
+# ============================================================
+
 Write-Host ""
-Write-Host "============================================================" -ForegroundColor Magenta
-Write-Host "         RBAC ASSIGNMENT ZAKOŃCZONY" -ForegroundColor Magenta
-Write-Host "============================================================" -ForegroundColor Magenta
+Write-Host ""
+Write-Host "╔════════════════════════════════════════════════════════════════╗" -ForegroundColor Magenta
+Write-Host "║                    RAPORT KOŃCOWY RBAC                         ║" -ForegroundColor Magenta
+Write-Host "╚════════════════════════════════════════════════════════════════╝" -ForegroundColor Magenta
+Write-Host ""
+
+# Zespoły przetworzone
+Write-Host "┌────────────────────────────────────────────────────────────────┐" -ForegroundColor Green
+Write-Host "│  ZESPOŁY PRZETWORZONE ($($script:Results.TeamsProcessed.Count))                                   │" -ForegroundColor Green
+Write-Host "└────────────────────────────────────────────────────────────────┘" -ForegroundColor Green
+if ($script:Results.TeamsProcessed.Count -gt 0) {
+    $script:Results.TeamsProcessed | ForEach-Object { Write-Host "  ✓ $_" -ForegroundColor Green }
+}
+else {
+    Write-Host "  (brak)" -ForegroundColor Gray
+}
+
+# Zespoły pominięte
+Write-Host ""
+Write-Host "┌────────────────────────────────────────────────────────────────┐" -ForegroundColor Yellow
+Write-Host "│  ZESPOŁY POMINIĘTE ($($script:Results.TeamsSkipped.Count))                                       │" -ForegroundColor Yellow
+Write-Host "└────────────────────────────────────────────────────────────────┘" -ForegroundColor Yellow
+if ($script:Results.TeamsSkipped.Count -gt 0) {
+    $script:Results.TeamsSkipped | ForEach-Object { Write-Host "  ⊘ $_" -ForegroundColor Yellow }
+}
+else {
+    Write-Host "  (brak)" -ForegroundColor Gray
+}
+
+# Role nadane
+Write-Host ""
+Write-Host "┌────────────────────────────────────────────────────────────────┐" -ForegroundColor Green
+Write-Host "│  ROLE NADANE ($($script:Results.RolesAssigned.Count))                                            │" -ForegroundColor Green
+Write-Host "└────────────────────────────────────────────────────────────────┘" -ForegroundColor Green
+if ($script:Results.RolesAssigned.Count -gt 0) {
+    $script:Results.RolesAssigned | ForEach-Object { Write-Host "  ✓ $_" -ForegroundColor Green }
+}
+else {
+    Write-Host "  (brak)" -ForegroundColor Gray
+}
+
+# Role już istniejące
+Write-Host ""
+Write-Host "┌────────────────────────────────────────────────────────────────┐" -ForegroundColor Cyan
+Write-Host "│  ROLE JUŻ ISTNIEJĄCE ($($script:Results.RolesAlreadyExist.Count))                                   │" -ForegroundColor Cyan
+Write-Host "└────────────────────────────────────────────────────────────────┘" -ForegroundColor Cyan
+if ($script:Results.RolesAlreadyExist.Count -gt 0) {
+    $script:Results.RolesAlreadyExist | ForEach-Object { Write-Host "  ○ $_" -ForegroundColor Cyan }
+}
+else {
+    Write-Host "  (brak)" -ForegroundColor Gray
+}
+
+# Role pominięte
+Write-Host ""
+Write-Host "┌────────────────────────────────────────────────────────────────┐" -ForegroundColor Yellow
+Write-Host "│  ROLE POMINIĘTE ($($script:Results.RolesSkipped.Count))                                          │" -ForegroundColor Yellow
+Write-Host "└────────────────────────────────────────────────────────────────┘" -ForegroundColor Yellow
+if ($script:Results.RolesSkipped.Count -gt 0) {
+    $script:Results.RolesSkipped | ForEach-Object { Write-Host "  ⊘ $_" -ForegroundColor Yellow }
+}
+else {
+    Write-Host "  (brak)" -ForegroundColor Gray
+}
+
+# Diagnostyka skonfigurowana
+Write-Host ""
+Write-Host "┌────────────────────────────────────────────────────────────────┐" -ForegroundColor Green
+Write-Host "│  DIAGNOSTYKA SKONFIGUROWANA ($($script:Results.DiagnosticsConfigured.Count))                          │" -ForegroundColor Green
+Write-Host "└────────────────────────────────────────────────────────────────┘" -ForegroundColor Green
+if ($script:Results.DiagnosticsConfigured.Count -gt 0) {
+    $script:Results.DiagnosticsConfigured | ForEach-Object { Write-Host "  ✓ $_" -ForegroundColor Green }
+}
+else {
+    Write-Host "  (brak)" -ForegroundColor Gray
+}
+
+# Diagnostyka pominięta
+Write-Host ""
+Write-Host "┌────────────────────────────────────────────────────────────────┐" -ForegroundColor Cyan
+Write-Host "│  DIAGNOSTYKA POMINIĘTA ($($script:Results.DiagnosticsSkipped.Count))                                  │" -ForegroundColor Cyan
+Write-Host "└────────────────────────────────────────────────────────────────┘" -ForegroundColor Cyan
+if ($script:Results.DiagnosticsSkipped.Count -gt 0) {
+    $script:Results.DiagnosticsSkipped | ForEach-Object { Write-Host "  ○ $_" -ForegroundColor Cyan }
+}
+else {
+    Write-Host "  (brak)" -ForegroundColor Gray
+}
+
+# Błędy
+Write-Host ""
+Write-Host "┌────────────────────────────────────────────────────────────────┐" -ForegroundColor Red
+Write-Host "│  BŁĘDY ($($script:Results.Errors.Count))                                                    │" -ForegroundColor Red
+Write-Host "└────────────────────────────────────────────────────────────────┘" -ForegroundColor Red
+if ($script:Results.Errors.Count -gt 0) {
+    $script:Results.Errors | ForEach-Object { Write-Host "  ✗ $_" -ForegroundColor Red }
+}
+else {
+    Write-Host "  (brak)" -ForegroundColor Gray
+}
+
+# Podsumowanie
+Write-Host ""
+Write-Host "╔════════════════════════════════════════════════════════════════╗" -ForegroundColor Magenta
+Write-Host "║                      PODSUMOWANIE                              ║" -ForegroundColor Magenta
+Write-Host "╠════════════════════════════════════════════════════════════════╣" -ForegroundColor Magenta
+Write-Host "║  Zespoły przetworzone:     $($script:Results.TeamsProcessed.Count.ToString().PadLeft(3))                                ║" -ForegroundColor Magenta
+Write-Host "║  Zespoły pominięte:        $($script:Results.TeamsSkipped.Count.ToString().PadLeft(3))                                ║" -ForegroundColor Magenta
+Write-Host "║  Role nadane:              $($script:Results.RolesAssigned.Count.ToString().PadLeft(3))                                ║" -ForegroundColor Magenta
+Write-Host "║  Role już istniejące:      $($script:Results.RolesAlreadyExist.Count.ToString().PadLeft(3))                                ║" -ForegroundColor Magenta
+Write-Host "║  Role pominięte:           $($script:Results.RolesSkipped.Count.ToString().PadLeft(3))                                ║" -ForegroundColor Magenta
+Write-Host "║  Diagnostyka nowa:         $($script:Results.DiagnosticsConfigured.Count.ToString().PadLeft(3))                                ║" -ForegroundColor Magenta
+Write-Host "║  Diagnostyka istniejąca:   $($script:Results.DiagnosticsSkipped.Count.ToString().PadLeft(3))                                ║" -ForegroundColor Magenta
+Write-Host "║  Błędy:                    $($script:Results.Errors.Count.ToString().PadLeft(3))                                ║" -ForegroundColor Magenta
+Write-Host "╚════════════════════════════════════════════════════════════════╝" -ForegroundColor Magenta
 Write-Host ""
