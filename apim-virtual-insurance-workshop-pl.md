@@ -30,6 +30,8 @@ https://learn.microsoft.com/en-us/azure/api-management/api-management-howto-app-
 
 ### 1.2 Tworzenie usługi Azure API Management
 
+> 📋 **Ściągawka**: Sprawdź dokument z danymi otrzymany od organizatorów. Znajdziesz tam dokładne nazwy zasobów i endpointy dla Twojego numeru użytkownika `{usernumber}`. Jeśli dla Ciebie nie został utworzony zasób Azure API Management, wykonaj poniższe kroki.
+
 https://learn.microsoft.com/en-us/azure/api-management/get-started-create-service-instance
 
 1. W Azure Portal, wyszukaj "API Management" w pasku wyszukiwania  
@@ -83,8 +85,9 @@ Dla naszego API będziemy używać następującego modelu danych polisy:
     - **Description**: Pobiera listę dostępnych polis
 4. W sekcji "Responses" kliknij "+ Add response"
     - **Status code**: 200 OK
-    - W "Representations" kliknij "Add representation" wybierz "application/json"
-    - Wklej przykładowy schemat:
+    - W "Representations" kliknij "Add representation"  
+    - W polu „Content Type” wybierz "application/json" (jeżeli na liście nie ma application/json wyszukaj w polu na początku listy po application/json lub wpisz „z ręki”) 
+    - W pole „Sample” wklej przykładowy schemat: 
 
 ```json
 [
@@ -119,7 +122,7 @@ https://learn.microsoft.com/en-us/azure/api-management/api-management-howto-api-
 1. Wybierz utworzone API i przejdź do zakładki "Test"
 2. Wybierz operację GET /polisy
 3. Kliknij "Send"
-4. Sprawdź czy otrzymujesz odpowiedź z przykładowymi danymi polis
+4. W sekcji „HTTP Response” sprawdź czy otrzymujesz odpowiedź z przykładowymi danymi polis 
 
 ---
 
@@ -137,7 +140,8 @@ https://learn.microsoft.com/en-us/azure/api-management/azure-openai-api-from-spe
 3. Wypełnij formularz:
     - **Display name**: polisy-ai
     - **name**: polisy-ai
-    - Podaj dowolny opis
+    - **Base path**: polisy-ai 
+    - W polu **Description** podaj dowolny opis 
     - Zaznacz opcję "Azure OpenAI"
 4. Kliknij "Next"
 5. Zaznacz opcję "Track token usage" (potrzebne do rozliczalności) - zapoznaj się z linkami https://learn.microsoft.com/en-us/azure/api-management/azure-openai-emit-token-metric-policy oraz https://learn.microsoft.com/en-us/azure/api-management/azure-openai-token-limit-policy
