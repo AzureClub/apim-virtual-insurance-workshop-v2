@@ -157,6 +157,8 @@ https://learn.microsoft.com/en-us/azure/api-management/llm-content-safety-policy
 
 Samo skonfigurowanie "Track token usage" nie wystarczy, aby metryki pojawiły się w "Application Insight". Należy jeszcze wykonać konfigurację z linka poniżej https://learn.microsoft.com/en-us/azure/api-management/api-management-howto-app-insights?tabs=rest takie jak "Create a connection between Application Insights and API Management", "Enable Application Insights logging for your API" jak również uruchomienie "Emit custom metrics". Dla ułatwienia ustawienie opcji "metrics" możesz zrobić poprzez cloudshell https://shell.azure.com
 
+Aby logować "LLM messages" czyli "prompts" oraz "completions" należy wykonać kroki opisane w tym dokumencie https://learn.microsoft.com/en-us/azure/api-management/api-management-howto-llm-logs
+
 ```
 az rest --method put \
   --url "https://management.azure.com/subscriptions/{SubscriptionId}/resourceGroups/{ResourceGroupName}/providers/Microsoft.ApiManagement/service/{APIManagementServiceName}/diagnostics/applicationinsights?api-version=2025-03-01-preview" \
