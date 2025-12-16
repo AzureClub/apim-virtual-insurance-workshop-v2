@@ -1186,7 +1186,7 @@ Polityka Smart Load Balancing dodaje dodatkowe headery do odpowiedzi:
 
 3. **Uruchom skrypt testowy** (zastąp `usernumber` Twoim numerem użytkownika):
    ```powershell
-   .\scripts\Test-SmartLoadBalancing.ps1 -UserNumber "usernumber" -RequestCount 25
+   .\scripts\Test-SmartLoadBalancing.ps1 -TeamNumber "usernumber" -RequestCount 25
    ```
 
    > 💡 **Rekomendacja**: Wartość **25 requestów** jest optymalna do przetestowania failover. Przy mniejszej liczbie (np. 10-15) może nie dojść do przekroczenia limitu TPM na Primary, a przy większej test trwa niepotrzebnie długo.
