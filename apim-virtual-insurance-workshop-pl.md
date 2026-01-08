@@ -1,6 +1,6 @@
 # Warsztat: Wirtualny Doradca Ubezpieczeniowy z Obsługą Wielokanałową
 
-**🌍 Language / Język:** [English](apim-virtual-insurance-workshop-en.md) 🇬🇧 | [Polski](apim-virtual-insurance-workshop-pl.md) 🇵🇱
+**🌍 Language / Język:** [English](apim-virtual-insurance-workshop-en.md) EN | [Polski](apim-virtual-insurance-workshop-pl.md) PL
 
 ---
 

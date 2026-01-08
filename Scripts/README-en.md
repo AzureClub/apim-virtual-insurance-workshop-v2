@@ -1,6 +1,6 @@
 # Workshop Setup Scripts
 
-**🌍 Language / Język:** [English](README-en.md) 🇬🇧 | [Polski](README.md) 🇵🇱
+**🌍 Language / Język:** [English](README-en.md) EN | [Polski](README.md) PL
 
 ---
 

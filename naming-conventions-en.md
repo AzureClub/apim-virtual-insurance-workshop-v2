@@ -1,6 +1,6 @@
 # 📋 Report: Azure Resource Naming Conventions for the Workshop
 
-**🌍 Language / Język:** [English](naming-conventions-en.md) 🇬🇧 | [Polski](naming-conventions.md) 🇵🇱
+**🌍 Language / Język:** [English](naming-conventions-en.md) EN | [Polski](naming-conventions.md) PL
 
 ---
 
