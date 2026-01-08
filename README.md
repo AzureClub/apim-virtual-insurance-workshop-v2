@@ -16,8 +16,8 @@
 
 ## 🌍 Language / Język
 
-- **[English Documentation](README-en.md)** 🇬🇧
-- **[Polska Dokumentacja](README.md)** 🇵🇱
+- **[English Documentation](README-en.md)** EN
+- **[Polska Dokumentacja](README.md)** PL
 
 ---
 
