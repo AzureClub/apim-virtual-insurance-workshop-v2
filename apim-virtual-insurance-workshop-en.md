@@ -96,18 +96,18 @@ For our API, we will use the following policy data model:
 ```json
 [
   {
-    "polisaId": "123456",
-    "rodzajPolisy": "zdrowotna",
-    "pakiet": "premium",
-    "cena": 100,
-    "opis": "Ubezpieczenie zdrowotne premium."
+    "policyId": "123456",
+    "policyType": "health",
+    "package": "premium",
+    "price": 100,
+    "description": "Premium health insurance."
   },
   {
-    "polisaId": "123457",
-    "rodzajPolisy": "samochodowa",
-    "pakiet": "standard",
-    "cena": 75,
-    "opis": "Podstawowe ubezpieczenie samochodu."
+    "policyId": "123457",
+    "policyType": "auto",
+    "package": "standard",
+    "price": 75,
+    "description": "Basic car insurance."
   }
 ]
 ```
@@ -492,7 +492,7 @@ The complete policy should look like this:
 
 ```
 {
-    "prompt": "Proszę podać id oraz ceny dotyczące polis ubezpieczeniowych. Napisz, którą polisę lepiej wybrać?"
+    "prompt": "Please provide the id and prices of insurance policies. Write which policy is better to choose?"
 }
 ```
 
@@ -596,7 +596,7 @@ https://learn.microsoft.com/en-us/azure/api-management/trace-policy
         </set-header>
         <trace source="API Management Trace">
             <message>@{
-    return "Rozpoczęcie przetwarzania żądania " + context.Request.Method + " " + context.Request.Url.Path;
+    return "Starting request processing " + context.Request.Method + " " + context.Request.Url.Path;
   }</message>
             <metadata name="User-Agent" value="@(context.Request.Headers.GetValueOrDefault("User-Agent", ""))" />
             <metadata name="Subscription-Id" value="@(context.Subscription?.Id ?? "anonymous")" />
@@ -609,7 +609,7 @@ https://learn.microsoft.com/en-us/azure/api-management/trace-policy
 ```xml
         <trace source="API Management Trace">
             <message>@{
-    return "Zakończenie przetwarzania, status: " + context.Response.StatusCode;
+    return "Completed processing, status: " + context.Response.StatusCode;
   }</message>
             <metadata name="User-Agent" value="@(context.Request.Headers.GetValueOrDefault("User-Agent", ""))" />
             <metadata name="Subscription-Id" value="@(context.Subscription?.Id ?? "anonymous")" />
@@ -633,7 +633,7 @@ The complete policy should look like this:
         </set-header>
         <trace source="API Management Trace">
             <message>@{
-    return "Rozpoczęcie przetwarzania żądania " + context.Request.Method + " " + context.Request.Url.Path;
+    return "Starting request processing " + context.Request.Method + " " + context.Request.Url.Path;
   }</message>
             <metadata name="User-Agent" value="@(context.Request.Headers.GetValueOrDefault("User-Agent", ""))" />
             <metadata name="Subscription-Id" value="@(context.Subscription?.Id ?? "anonymous")" />
@@ -654,7 +654,7 @@ The complete policy should look like this:
         <base />
         <trace source="API Management Trace">
             <message>@{
-    return "Zakończenie przetwarzania, status: " + context.Response.StatusCode;
+    return "Completed processing, status: " + context.Response.StatusCode;
   }</message>
             <metadata name="User-Agent" value="@(context.Request.Headers.GetValueOrDefault("User-Agent", ""))" />
             <metadata name="Subscription-Id" value="@(context.Subscription?.Id ?? "anonymous")" />
