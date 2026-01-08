@@ -1,5 +1,9 @@
 # Workshop Setup Scripts
 
+**🌍 Language / Język:** [English](README-en.md) 🇬🇧 | [Polski](README.md) 🇵🇱
+
+---
+
 Skrypty pomocnicze do przygotowania środowiska warsztatowego Azure.
 
 ---

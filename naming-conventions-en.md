@@ -1,23 +1,23 @@
-# 📋 Raport: Konwencje nazewnicze zasobów Azure w warsztacie
+# 📋 Report: Azure Resource Naming Conventions for the Workshop
 
 **🌍 Language / Język:** [English](naming-conventions-en.md) 🇬🇧 | [Polski](naming-conventions.md) 🇵🇱
 
 ---
 
-## Parametry bazowe
+## Base Parameters
 
-| Parametr | Wartość domyślna | Opis |
+| Parameter | Default Value | Description |
 |----------|------------------|------|
-| `$Prefix` | `azureclubworkshopint` | Główny prefix dla wszystkich zasobów |
-| `$Location` | `swedencentral` | Lokalizacja Primary (dla AI Foundry Secondary) |
-| `$SecondaryLocation` | `francecentral` | Lokalizacja Secondary (dla AI Foundry Primary) |
-| `$UserNumber` | `01`, `02`, `03`, ... | Numer użytkownika (2-cyfrowy z zerem wiodącym) |
+| `$Prefix` | `azureclubworkshopint` | Main prefix for all resources |
+| `$Location` | `swedencentral` | Primary location (for AI Foundry Secondary) |
+| `$SecondaryLocation` | `francecentral` | Secondary location (for AI Foundry Primary) |
+| `$UserNumber` | `01`, `02`, `03`, ... | User number (2-digit with leading zero) |
 
 ---
 
-## Wzorce nazewnicze zasobów
+## Resource Naming Patterns
 
-| Typ zasobu | Wzorzec | Przykład (użytkownik 05) |
+| Resource Type | Pattern | Example (user 05) |
 |------------|---------|----------------------|
 | **Resource Group** | `rg-{prefix}-{usernumber}` | `rg-azureclubworkshopint-05` |
 | **API Management** | `apim-{prefix}-{usernumber}` | `apim-azureclubworkshopint-05` |
@@ -29,15 +29,15 @@
 | **Logic App** | `la-{prefix}-{usernumber}` | `la-azureclubworkshopint-05` |
 | **App Registration** | `PolisyAPI-OAuth-{usernumber}` | `PolisyAPI-OAuth-05` |
 | **PostgreSQL** | `psql-{prefix}-{usernumber}` | `psql-azureclubworkshopint-05` |
-| **Fabric Capacity** | `fc{prefix}{usernumber}` (bez myślników) | `fcazureclubworkshopint05` |
+| **Fabric Capacity** | `fc{prefix}{usernumber}` (no hyphens) | `fcazureclubworkshopint05` |
 | **Function App** | `func-{prefix}-{usernumber}` | `func-azureclubworkshopint-05` |
-| **Storage Account** | `st{prefix}{usernumber}` (bez myślników, max 24 znaki) | `stazureclubworkshopint05` |
+| **Storage Account** | `st{prefix}{usernumber}` (no hyphens, max 24 chars) | `stazureclubworkshopint05` |
 
 ---
 
-## Prefixy Azure wg typu zasobu
+## Azure Prefixes by Resource Type
 
-| Prefix | Typ zasobu |
+| Prefix | Resource Type |
 |--------|------------|
 | `rg-` | Resource Group |
 | `apim-` | API Management |
@@ -53,9 +53,9 @@
 
 ---
 
-## Lokalizacje zasobów
+## Resource Locations
 
-| Zasób | Lokalizacja |
+| Resource | Location |
 |-------|-------------|
 | Resource Group | `swedencentral` |
 | APIM | `swedencentral` |
@@ -66,7 +66,7 @@
 
 ---
 
-## Przykład kompletny dla użytkownika 01
+## Complete Example for User 01
 
 ```
 rg-azureclubworkshopint-01              (Resource Group)
@@ -83,9 +83,9 @@ rg-azureclubworkshopint-01              (Resource Group)
 
 ---
 
-## URL-e usług
+## Service URLs
 
-| Usługa | Wzorzec URL |
+| Service | URL Pattern |
 |--------|-------------|
 | **APIM Gateway** | `https://apim-{prefix}-{usernumber}.azure-api.net/` |
 | **AI Foundry Primary** | `https://aoai-{prefix}-{usernumber}-01.cognitiveservices.azure.com/` |
@@ -94,6 +94,6 @@ rg-azureclubworkshopint-01              (Resource Group)
 
 ---
 
-## Źródło
+## Source
 
-Raport wygenerowany na podstawie skryptu `scripts/provision-workshop.ps1`.
+Report generated based on the script `scripts/provision-workshop.ps1`.

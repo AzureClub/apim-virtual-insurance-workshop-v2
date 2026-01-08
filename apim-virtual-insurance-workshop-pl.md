@@ -1,5 +1,9 @@
 # Warsztat: Wirtualny Doradca Ubezpieczeniowy z Obsługą Wielokanałową
 
+**🌍 Language / Język:** [English](apim-virtual-insurance-workshop-en.md) 🇬🇧 | [Polski](apim-virtual-insurance-workshop-pl.md) 🇵🇱
+
+---
+
 Celem warsztatu jest stworzenie interfejsu API do integracji z chatbotem generatywnym, który może odpowiadać na pytania klientów dotyczące polis ubezpieczeniowych, przetwarzając dane w czasie rzeczywistym i korzystając z Azure API Management do zarządzania, monitorowania i zabezpieczania API.
 
 ## Wymagania dla uczestników
