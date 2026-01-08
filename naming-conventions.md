@@ -1,5 +1,9 @@
 # 📋 Raport: Konwencje nazewnicze zasobów Azure w warsztacie
 
+**🌍 Language / Język:** [English](naming-conventions-en.md) 🇬🇧 | [Polski](naming-conventions.md) 🇵🇱
+
+---
+
 ## Parametry bazowe
 
 | Parametr | Wartość domyślna | Opis |
