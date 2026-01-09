@@ -14,6 +14,13 @@
 
 ---
 
+## 🌍 Language / Język
+
+- **[English Documentation](README-en.md)** EN
+- **[Polska Dokumentacja](README.md)** PL
+
+---
+
 ## 📋 O warsztacie
 
 Ten warsztat prowadzi uczestników przez proces tworzenia zaawansowanego interfejsu API dla **wirtualnego doradcy ubezpieczeniowego** z obsługą wielokanałową. Projekt wykorzystuje najnowsze technologie Microsoft Azure do budowy inteligentnego systemu, który może odpowiadać na pytania klientów dotyczące polis ubezpieczeniowych w czasie rzeczywistym.
@@ -51,15 +58,26 @@ Ten warsztat prowadzi uczestników przez proces tworzenia zaawansowanego interfe
 ```
 apim-virtual-insurance-workshop-v2/
 │
-├── 📄 apim-virtual-insurance-workshop-pl.md   # Główny materiał warsztatowy (instrukcje krok po kroku)
-├── 📄 naming-conventions.md                    # Konwencje nazewnictwa zasobów Azure
-├── 📄 README.md                                # Ten plik
-├── 🖼️ Logo-Azure-Club.png                      # Logo Azure Club
+├── 📄 README-en.md                              # Główny plik (English)
+├── 📄 README.md                                 # Ten plik (Polska)
+├── 📄 apim-virtual-insurance-workshop-en.md    # Materiał warsztatowy (English)
+├── 📄 apim-virtual-insurance-workshop-pl.md    # Materiał warsztatowy (Polska)
+├── 📄 naming-conventions-en.md                  # Konwencje nazewnictwa (English)
+├── 📄 naming-conventions.md                     # Konwencje nazewnictwa (Polska)
+├── 🖼️ Logo-Azure-Club.png                       # Logo Azure Club
 │
-└── 📁 function/                                # Azure Function - Vector Search
-    ├── function_app.py                         # Główna logika funkcji
-    ├── host.json                               # Konfiguracja Azure Functions
-    └── requirements.txt                        # Zależności Python
+├── 📁 Scripts/                                  # Skrypty przygotowujące i testowe
+│   ├── README-en.md                             # Dokumentacja skryptów (English)
+│   ├── README.md                                # Dokumentacja skryptów (Polska)
+│   ├── CreateMHusers.ps1                        # Skrypt tworzenia użytkowników
+│   ├── CreateResourceGroups.ps1                 # Skrypt tworzenia grup zasobów
+│   ├── Test-SmartLoadBalancing.ps1              # Skrypt testowy load balancingu
+│   └── ...                                      # Inne skrypty pomocnicze
+│
+└── 📁 function/                                 # Azure Function - Vector Search
+    ├── function_app.py                          # Główna logika funkcji
+    ├── host.json                                # Konfiguracja Azure Functions
+    └── requirements.txt                         # Zależności Python
 ```
 
 ---
@@ -82,7 +100,9 @@ Przed rozpoczęciem warsztatu upewnij się, że posiadasz:
 
 ### 📖 Materiały warsztatowe
 
-👉 **[Przejdź do pełnych materiałów warsztatowych](apim-virtual-insurance-workshop-pl.md)**
+👉 **[Przejdź do pełnych materiałów warsztatowych (Polska)](apim-virtual-insurance-workshop-pl.md)**
+
+👉 **[Go to full workshop materials (English)](apim-virtual-insurance-workshop-en.md)**
 
 Materiał obejmuje 12 głównych sekcji:
 
@@ -113,7 +133,9 @@ Materiał obejmuje 12 głównych sekcji:
 
 Repozytorium zawiera szczegółowe konwencje nazewnictwa dla wszystkich zasobów Azure:
 
-👉 **[Sprawdź konwencje nazewnictwa](naming-conventions.md)**
+👉 **[Sprawdź konwencje nazewnictwa (Polska)](naming-conventions.md)**
+
+👉 **[Check naming conventions (English)](naming-conventions-en.md)**
 
 Przykładowa struktura dla użytkownika **05**:
 
