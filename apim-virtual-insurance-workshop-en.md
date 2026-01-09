@@ -1,4 +1,4 @@
-# Workshop: Multi-Channel Virtual Insurance Advisor
+1# Workshop: Multi-Channel Virtual Insurance Advisor
 
 **🌍 Language / Język:** [English](apim-virtual-insurance-workshop-en.md) EN | [Polski](apim-virtual-insurance-workshop-pl.md) PL
 
@@ -660,6 +660,51 @@ The complete policy should look like this:
             <metadata name="Subscription-Id" value="@(context.Subscription?.Id ?? "anonymous")" />
             <metadata name="correlation-id" value="@((string)context.Variables["correlation-id"])" />
         </trace>
+```
+
+5. Click "Save"
+
+The complete policy should look like this:
+
+```xml
+<policies>
+    <inbound>
+        <base />
+        <!--Use consumer correlation id or generate new one-->
+        <set-variable name="correlation-id" value="@(context.Request.Headers.GetValueOrDefault("x-ms-client-tracking-id", Guid.NewGuid().ToString()))" />
+        <!--Set header for end-to-end correlation-->
+        <set-header name="x-correlation-id" exists-action="override">
+            <value>@((string)context.Variables["correlation-id"])</value>
+        </set-header>
+        <trace source="API Management Trace">
+            <message>@{
+    return "Starting request processing " + context.Request.Method + " " + context.Request.Url.Path;
+  }</message>
+            <metadata name="User-Agent" value="@(context.Request.Headers.GetValueOrDefault("User-Agent", ""))" />
+            <metadata name="Subscription-Id" value="@(context.Subscription?.Id ?? "anonymous")" />
+            <metadata name="correlation-id" value="@((string)context.Variables["correlation-id"])" />
+        </trace>
+        <validate-azure-ad-token tenant-id="xxxxxxxxxxxxxxxxxxxx">
+            <client-application-ids>
+                <application-id>xxxxxxxxxxxxxxxx</application-id>
+            </client-application-ids>
+        </validate-azure-ad-token>
+        <azure-openai-token-limit counter-key="@(context.Subscription.Id)" tokens-per-minute="10000" estimate-prompt-tokens="true" />
+        <set-backend-service id="apim-generated-policy" backend-id="policies-ai-ai-endpoint" />
+    </inbound>
+    <backend>
+        <base />
+    </backend>
+    <outbound>
+        <base />
+        <trace source="API Management Trace">
+            <message>@{
+    return "Completed processing, status: " + context.Response.StatusCode;
+  }</message>
+            <metadata name="User-Agent" value="@(context.Request.Headers.GetValueOrDefault("User-Agent", ""))" />
+            <metadata name="Subscription-Id" value="@(context.Subscription?.Id ?? "anonymous")" />
+            <metadata name="correlation-id" value="@((string)context.Variables["correlation-id"])" />
+        </trace>
         <json-to-xml apply="always" consider-accept-header="false" parse-date="false" />
         <set-body>@{
         string body = context.Response.Body.As<string>(preserveContent: true);
@@ -679,7 +724,7 @@ https://learn.microsoft.com/en-us/azure/azure-monitor/app/transaction-search-and
 1. Execute several queries to the API
 2. Go to the Application Insights resource
 3. In the side menu, select "Investigate", then "Search"
-4. Check the results.
+4. Check what the results look like.
 
 ---
 
@@ -1129,7 +1174,511 @@ This policy implements **automatic retry** on 429/5xx errors:
 
 ---
 
-*[Sections 10.7-10.13 continue with Testing Smart Load Balancing, Observing Load Balancing, Restoring Normal TPM Limit, How the Algorithm Works, Key Policy Elements, Extensions, and Summary - following the same comprehensive technical detail as the Polish version]*
+## 10.7 Test Preparation - Reducing TPM Limit
+
+To test Smart Load Balancing functionality, we need to trigger a 429 error (Too Many Requests) on the Primary backend. To do this, we will **temporarily reduce the TPM limit** on the Primary deployment to the minimum value.
+
+### Step 1: Reduce TPM on Primary OpenAI
+
+1. Go to **Azure AI Foundry portal** (https://ai.azure.com)
+2. Select your Azure AI Foundry **Primary** resource (e.g., `aoai-azureclubworkshopint-XX-01`)
+3. Go to the **Deployments** section
+4. Find the `gpt-4o-mini` deployment and click on it
+5. Click **Edit deployment** or the edit icon
+6. In the **Tokens per Minute Rate Limit** field, change the value to **1K** (1000)
+7. Click **Save**
+
+> 💡 **Explanation**: A 1K TPM limit means ~10-15 short requests per minute. With intensive traffic, we will quickly reach the limit and receive a 429 error.
+
+### Step 2: Verify Secondary Limit (optional)
+
+Make sure that Secondary Azure AI Foundry has a higher limit (e.g., 10K TPM) so it can handle traffic after failover:
+
+1. Go to the Azure AI Foundry **Secondary** resource (e.g., `aoai-azureclubworkshopint-XX-02`)
+2. Check that the `gpt-4o-mini` deployment has a **10K TPM** limit or higher
+
+---
+
+## 10.8 Testing Smart Load Balancing
+
+To test Smart Load Balancing, we will use the **PowerShell script** `Test-SmartLoadBalancing.ps1`, which automatically:
+- Retrieves an Azure AD token from Azure CLI (no subscription key required!)
+- Sends multiple parallel requests
+- Displays detailed results with information about retry and failover
+
+> ⚠️ **IMPORTANT - Disable subscription requirement**: Before running the test, make sure that the "Subscription required" option is **disabled** for the `policies-ai` API in APIM.
+>
+> **How to check/disable:**
+> 1. Go to **Azure API Management** → **APIs** → **policies-ai**
+> 2. Click the **"Settings"** tab
+> 3. In the **"Subscription"** section, uncheck the **"Subscription required"** checkbox
+> 4. Click **"Save"**
+>
+> This allows the script to use an Azure AD token instead of an APIM subscription key.
+
+### New Diagnostic Headers
+
+The Smart Load Balancing policy adds additional headers to responses:
+
+| Header | Description | Example |
+|--------|-------------|---------|
+| `x-served-by` | URL of the backend that served the request | `https://aoai-azureclubworkshopint-XX-01.cognitiveservices.azure.com/` |
+| `x-retry-count` | How many retries were needed (empty = 0) | `1` (indicates failover to another backend) |
+
+### Running the Test
+
+1. **Open PowerShell terminal** in the workshop materials directory
+
+2. **Make sure you are logged into Azure:**
+   ```powershell
+   az login
+   ```
+
+3. **Run the test script** (replace `usernumber` with your user number):
+   ```powershell
+   .\scripts\Test-SmartLoadBalancing.ps1 -TeamNumber "usernumber" -RequestCount 25
+   ```
+
+   > 💡 **Recommendation**: The value of **25 requests** is optimal for testing failover. With a smaller number (e.g., 10-15), the TPM limit on Primary may not be exceeded, and with a larger number, the test takes unnecessarily long.
+
+### Sample Output
+
+```
+╔════════════════════════════════════════════════════════════════╗
+║       SMART LOAD BALANCING TEST - Azure API Management         ║
+╚════════════════════════════════════════════════════════════════╝
+
+[CONFIG] Test configuration:
+  • User:              05
+  • APIM:              apim-azureclubworkshopint-05
+  • Request count:     25
+  • Parallel mode:     True
+
+[INFO] Retrieving Azure AD token from Azure CLI...
+[OK] Azure AD token retrieved
+
+[INFO] Starting test...
+
+[MODE] Sending 20 requests in PARALLEL...
+
+╔════════════════════════════════════════════════════════════════╗
+║                        TEST RESULTS                            ║
+╚════════════════════════════════════════════════════════════════╝
+
+[DETAILS] Per-request results:
+─────────────────────────────────────────────────────────────────
+  Request  1: PRIMARY              
+  Request  2: PRIMARY              
+  Request  3: SECONDARY   (retry: 1)  ← FAILOVER!
+  Request  4: SECONDARY   (retry: 1)  ← FAILOVER!
+  Request  5: PRIMARY              
+  ...
+
+─────────────────────────────────────────────────────────────────
+[STATISTICS]
+─────────────────────────────────────────────────────────────────
+  Test duration:          12.3 seconds
+  Total requests:         20
+
+  PRIMARY (Priority 1):   15 requests
+  SECONDARY (Priority 2): 5 requests
+  ERRORS:                 0 requests
+  With automatic RETRY:   5 requests
+
+─────────────────────────────────────────────────────────────────
+[SUMMARY]
+─────────────────────────────────────────────────────────────────
+
+  ✅ SUCCESS! Smart Load Balancing WORKS CORRECTLY!
+
+  What happened:
+  • Primary backend reached TPM limit (429)
+  • Policy automatically performed RETRY to Secondary
+  • Client received 200 OK response (didn't see 429 error)
+
+  The 'x-retry-count' header shows how many retries were needed.
+```
+
+### Result Interpretation
+
+| Result | Meaning |
+|--------|---------|
+| `PRIMARY` | Request served by Primary (Priority 1) - normal situation |
+| `SECONDARY (retry: 1)` | Primary returned 429, automatic retry to Secondary - **failover worked!** |
+| `ERROR 429` | All backends throttling - increase TPM limit on Secondary |
+| `ERROR 401` | Managed Identity issue - check APIM permissions to OpenAI |
+
+### Script Parameters
+
+| Parameter | Description | Default value | Recommendation |
+|----------|-------------|---------------|----------------|
+| `-UserNumber` | Your user number (required) | - | - |
+| `-RequestCount` | Number of requests to send | 20 | **25** |
+| `-Parallel` | Whether to send in parallel | `$true` | `$true` |
+
+### What to Observe in Results?
+
+1. **Basic operation**: First requests should go to **PRIMARY**
+2. **Failover**: When Primary reaches TPM limit (1K), you'll see a switch to **SECONDARY** with the `(retry: 1)` marker
+3. **Automatic restoration**: After ~10-60 seconds, Primary will return to use
+
+> 💡 **Key difference from traditional load balancing**: Thanks to automatic retry, **the client never sees a 429 error** as long as at least one backend is available!
+
+---
+
+## 10.9 Observing Load Balancing - Verification Methods
+
+There are several ways to observe Smart Load Balancing in action. Below we describe all methods - from the simplest to the most advanced.
+
+### Method 1: Test Script Results (⭐ RECOMMENDED)
+
+**Easiest method** - the `Test-SmartLoadBalancing.ps1` script automatically displays:
+
+- **Per-request**: which backend served each request (PRIMARY/SECONDARY)
+- **Failover**: `(retry: X)` marker when automatic switching occurred
+- **Statistics**: summary of how many requests each backend served
+
+Sample result excerpt:
+```
+  Request  1: PRIMARY              
+  Request  2: PRIMARY              
+  Request  3: SECONDARY   (retry: 1)  ← FAILOVER!
+  Request  4: SECONDARY   (retry: 1)  ← FAILOVER!
+  Request  5: PRIMARY              
+```
+
+---
+
+### Method 2: Application Insights - Transaction Search
+
+Application Insights collects detailed logs from APIM, including traces and metrics.
+
+1. Go to **Application Insights** resource (e.g., `appi-azureclubworkshopint-XX`)
+2. In the menu select **"Investigate"** → **"Transaction search"**
+3. Set time range to last 30 minutes
+4. Search for requests to the `policies-ai` API
+5. In transaction details you will find:
+   - Request URL (shows backend)
+   - Custom properties with headers
+   - Trace messages: "Backend throttling detected. Switching to another backend."
+
+---
+
+### Method 3: Azure AI Foundry Metrics
+
+Per-resource Azure AI Foundry metrics show how many requests each backend served.
+
+1. Go to **Azure AI Foundry portal** (https://ai.azure.com)
+2. Select Azure AI Foundry resource (Primary or Secondary)
+3. Go to **Metrics** in the side menu
+4. Add metric: **"Azure OpenAI Requests"** (metric name remains the same)
+5. Set aggregation: **Count**
+6. Range: last 30 minutes, granularity 1 minute
+
+**Interpretation**:
+- **Primary** (`aoai-azureclubworkshopint-XX-01`): many requests, then sudden drop
+- **Secondary** (`aoai-azureclubworkshopint-XX-02`): initially 0, then increase (failover)
+
+---
+
+### Method 4: Log Analytics - KQL Query (Advanced)
+
+> ⚠️ **Required configuration**: To use this method, APIM must have diagnostics enabled to Log Analytics with `GatewayLogs` logs in **Resource-specific** mode.
+> 
+> **Note about delays:**
+> - `requests` (Application Insights) - data available **immediately** (~1-2 minutes)
+> - `ApiManagementGatewayLogs` - data available with **10-20 minute** delay
+
+For detailed analysis, use KQL queries:
+
+> ⚠️ **Important**: Run `requests` queries in **Application Insights** (`appi-azureclubworkshopint-XX`), and `ApiManagementGatewayLogs` queries in **Log Analytics Workspace** (`log-azureclubworkshopint-XX`).
+>
+> **Table naming differences:**
+> | Application Insights | Log Analytics (cross-workspace) |
+> |---------------------|--------------------------------|
+> | `requests` | `AppRequests` |
+> | `timestamp` | `TimeGenerated` |
+> | `url` | `Url` |
+> | `resultCode` | `ResultCode` |
+
+### Queries in Application Insights
+
+1. Go to **Application Insights** resource (e.g., `appi-azureclubworkshopint-XX`)
+2. Select **"Logs"** in the side menu
+3. Paste the query below:
+
+**Query 1: Application Insights - request distribution** (⭐ works immediately):
+
+```kusto
+// Request distribution to policies-ai API over time
+requests
+| where timestamp > ago(2h)
+| where url contains "policies-ai"
+| summarize RequestCount = count() by bin(timestamp, 1m), resultCode
+| render timechart
+```
+
+### Queries in Log Analytics Workspace
+
+1. Go to **Log Analytics Workspace** resource (e.g., `log-azureclubworkshopint-XX`)
+2. Select **"Logs"** in the side menu
+3. Paste the query below:
+
+**Query 2: APIM Gateway Logs - backend summary** (⭐ RECOMMENDED, requires ~15 min for data to appear):
+
+> 💡 **Adjust time range**: By default, queries use `ago(2h)` (last 2 hours). If your tests were earlier, increase this range, e.g., `ago(4h)` or `ago(6h)`. Each participant works at their own pace!
+
+```kusto
+// Request summary per backend - CLEARLY shows distribution!
+ApiManagementGatewayLogs
+| where TimeGenerated > ago(2h)  // ← change to ago(4h) or ago(6h) if needed
+| where ApiId == "policies-ai"
+| extend BackendHost = tostring(split(BackendUrl, "/")[2])
+| summarize RequestCount = count() by BackendHost
+| order by RequestCount desc
+```
+
+**Sample result:**
+| BackendHost | RequestCount |
+|-------------|--------------|
+| `aoai-azureclubworkshopint-XX-01.cognitiveservices.azure.com` | 31 |
+| `aoai-azureclubworkshopint-XX-02.cognitiveservices.azure.com` | 9 |
+
+> 👆 **Interpretation**: Primary (`XX-01`) served 31 requests, Secondary (`XX-02`) served 9 requests after failover!
+
+**Query 3: Latency comparison between backends** ⭐:
+
+```kusto
+// Compare average response time (ms) per backend
+ApiManagementGatewayLogs
+| where TimeGenerated > ago(2h)
+| where ApiId == "policies-ai"
+| extend BackendHost = tostring(split(BackendUrl, "/")[2])
+| summarize 
+    AvgLatency = round(avg(todouble(BackendTime)), 0),
+    MaxLatency = max(todouble(BackendTime)),
+    MinLatency = min(todouble(BackendTime)),
+    RequestCount = count() 
+    by BackendHost
+| order by RequestCount desc
+```
+
+**Sample result:**
+| BackendHost | AvgLatency | MaxLatency | MinLatency | RequestCount |
+|-------------|------------|------------|------------|--------------|
+| `XX-01.cognitiveservices.azure.com` | **7653** | 56544 | 197 | 31 |
+| `XX-02.cognitiveservices.azure.com` | **281** | 367 | 257 | 9 |
+
+> 👆 **Interpretation**: Primary (`XX-01`) has significantly higher latency (~7.6s) because it's throttling and waiting for retry. Secondary (`XX-02`) responds quickly (~280ms) because it has spare capacity!
+
+---
+
+**Query 4: Success vs Throttled vs Errors per backend** ⭐:
+
+```kusto
+// Status code distribution per backend - shows how many requests were throttled
+ApiManagementGatewayLogs
+| where TimeGenerated > ago(2h)
+| where ApiId == "policies-ai"
+| extend BackendHost = tostring(split(BackendUrl, "/")[2])
+| summarize 
+    Success = countif(BackendResponseCode == "200"),
+    Throttled = countif(BackendResponseCode == "429"),
+    Errors = countif(BackendResponseCode != "200" and BackendResponseCode != "429")
+    by BackendHost
+```
+
+**Sample result:**
+| BackendHost | Success | Throttled | Errors |
+|-------------|---------|-----------|--------|
+| `XX-01.cognitiveservices.azure.com` | 23 | **8** | 0 |
+| `XX-02.cognitiveservices.azure.com` | 9 | 0 | 0 |
+
+> 👆 **Interpretation**: Primary (`XX-01`) returned 429 error 8 times (throttling), but the policy automatically performed retry to Secondary - that's why the client always got 200!
+
+---
+
+**Query 5: APIM Gateway Logs - backend distribution over time** (chart):
+
+```kusto
+// Request distribution between backends over time (chart)
+ApiManagementGatewayLogs
+| where TimeGenerated > ago(1h)
+| where ApiId == "policies-ai"
+| extend BackendHost = tostring(split(BackendUrl, "/")[2])
+| summarize RequestCount = count() by BackendHost, bin(TimeGenerated, 1m)
+| render timechart
+```
+
+> 💡 **If `ApiManagementGatewayLogs` is empty**: The table is created automatically after enabling diagnostics, but first data appears with a 10-20 minute delay. Use `AppRequests` (in Application Insights) for immediate verification.
+
+4. Click **"Run"**
+5. The table/chart will show request distribution between backends
+
+### Query in Application Insights (summary)
+
+> ⚠️ **Note**: Run this query in **Application Insights** (`appi-azureclubworkshopint-XX`), not in Log Analytics!
+>
+> **Naming difference**: In Application Insights, the table is called `requests` (not `AppRequests`), and columns use camelCase (`timestamp`, `url`, `resultCode`).
+
+**Query 6: Application Insights - summary table**:
+
+```kusto
+// Request summary per status code
+// RUN IN: Application Insights → Logs
+requests
+| where timestamp > ago(2h)
+| where url contains "policies-ai"
+| summarize 
+    TotalRequests = count(),
+    SuccessfulRequests = countif(resultCode == "200"),
+    FailedRequests = countif(resultCode != "200")
+    by bin(timestamp, 5m)
+| order by timestamp desc
+```
+
+> 💡 **Tip**: If you want to see detailed logs with `x-served-by` headers, use **Application Insights → Transaction Search** (Method 2) - there you'll see full details of each request.
+
+---
+
+### Observation Methods Summary
+
+| Method | Ease | Detail Level | Best Use Case |
+|--------|------|--------------|---------------|
+| **Test script** | ⭐⭐⭐ Easy | Basic | Quick per-request verification |
+| **App Insights** | ⭐⭐ Medium | Medium | Traces and debugging |
+| **OpenAI Metrics** | ⭐⭐ Medium | Per-resource | Overall load picture |
+| **Log Analytics KQL** | ⭐ Advanced | Highest | Detailed analysis and reports |
+
+---
+
+## 10.10 Restoring Normal TPM Limit
+
+⚠️ **After completing tests**, restore the normal TPM limit on Primary:
+
+1. Go to **Azure AI Foundry portal** (https://ai.azure.com)
+2. Select the Azure AI Foundry **Primary** resource
+3. Edit the `gpt-4o-mini` deployment
+4. Change **Tokens per Minute Rate Limit** back to **10K** or higher
+5. Click **Save**
+
+> 💡 This step is important to ensure normal throughput for subsequent tasks or users.
+
+---
+
+## 10.11 How the Smart Load Balancing Algorithm Works
+
+### Flow for Each Request:
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                           INBOUND PROCESSING                                 │
+├─────────────────────────────────────────────────────────────────────────────┤
+│  1. Initialization: remainingAttempts = 3                                   │
+│  2. Retrieve backend list from cache (or initialize)                       │
+│  3. Health Check - restore backends after retryAfter time                  │
+│  4. Select backend with lowest priority among healthy ones                 │
+│  5. Save originalBody (for potential retry)                                │
+│  6. Forward request to selected backend                                    │
+└─────────────────────────────────────────────────────────────────────────────┘
+                                    │
+                                    ▼
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                          OUTBOUND PROCESSING                                 │
+├─────────────────────────────────────────────────────────────────────────────┤
+│  Response 200?                                                               │
+│       │                                                                      │
+│      YES ──────────────────────► Return response to client                  │
+│       │                          + x-served-by header                        │
+│      NO (429/5xx)                                                           │
+│       │                                                                      │
+│       ▼                                                                      │
+│  1. Mark backend as throttling                                              │
+│  2. remainingAttempts--                                                     │
+│  3. Are remainingAttempts > 0 AND healthy backends available?               │
+│       │                                                                      │
+│      YES ──► Select new backend ──► send-request ──► return-response       │
+│       │      + x-retry-count header                                         │
+│      NO                                                                      │
+│       │                                                                      │
+│       ▼                                                                      │
+│  Return original 429/5xx response                                           │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+### Key Difference: Automatic Retry
+
+**Traditional load balancing:**
+- On 429, only marks backend as throttling
+- Client gets 429 error
+- Only **next request** goes to another backend
+
+**Smart Load Balancing (this policy):**
+- On 429, **immediately** selects another backend
+- Sends **new request** to healthy backend (using `send-request`)
+- Client gets **200 OK** with response
+- `x-retry-count` header indicates how many retries were needed
+
+### Maximum Number of Attempts
+
+The policy performs **maximum 3 attempts**:
+1. First attempt to Primary (Priority 1)
+2. If 429 → retry to Secondary (Priority 2)
+3. If 429 again → last attempt
+
+If all attempts fail or all backends are throttling → client gets an error.
+
+---
+
+## 10.12 Key Policy Elements
+
+| Element | Purpose |
+|---------|---------|
+| `remainingAttempts` | Attempt counter (max 3) |
+| `listBackends` | JSON array with backends, priorities and status |
+| `originalBody` | Saved request body for retry |
+| `cache-store-value` | Maintains backend state between requests |
+| `isThrottling` | Flag whether backend returns 429 |
+| `retryAfter` | Timestamp when backend will be healthy again |
+| `priority` | Lower value = higher priority |
+| `send-request` | Sends retry request to new backend |
+| `return-response` | Replaces response with retry result |
+| `x-served-by` | Header - which backend served request |
+| `x-retry-count` | Header - how many retries were performed |
+
+---
+
+## 10.13 Extensions (Optional)
+
+### Adding a Third Backend
+
+To add another backend, in the `listBackends` section add:
+
+```xml
+backends.Add(new JObject()
+{
+    { "url", "https://aoai-azureclubworkshopint-XX-03.cognitiveservices.azure.com/" },
+    { "priority", 3},
+    { "isThrottling", false },
+    { "retryAfter", DateTime.MinValue }
+});
+```
+
+### Using External Redis Cache
+
+For environments with multiple APIM instances, consider using external Redis Cache:
+https://learn.microsoft.com/azure/api-management/api-management-howto-cache-external
+
+---
+
+## Summary
+
+After completing this task, your API:
+- ✅ Automatically switches between Azure AI Foundry backends
+- ✅ Respects rate limiting limits (429)
+- ✅ Uses priorities (PTU before S0)
+- ✅ Immediately responds to errors without delays
+- ✅ Logs failover information to Application Insights
 
 ---
 
@@ -1150,7 +1699,86 @@ https://learn.microsoft.com/en-us/azure/api-management/export-rest-mcp-server
 10. Click "Create"
 11. Enter the created MCP named "PoliciesAPIMCP" and note the "MCP server URL", e.g., https://xxxxxxx.azure-api.net/policiesapimcp/mcp
 
-*[Sections 11.2-11.3 continue with Agent Configuration in Microsoft Foundry and MCP Server Policy Configuration]*
+### 11.2 Agent Configuration in Microsoft Foundry
+
+1. Go to "https://ai.azure.com".
+2. Find your Microsoft Foundry where you want to create the agent. Use the new Microsoft Foundry interface. You'll find the Microsoft Foundry project selector in the upper left corner.
+3. Go to the "Build" tab - you'll find this option in the upper right corner.
+4. Click on "Create agent".
+5. In the "Create an agent" field, enter "Agent-Insurance".
+6. In the model selection field, choose any available model.
+7. In the "Instructions" field, enter "You are an insurance agent, helping the client choose appropriate insurance. You have access to the list of insurances via the MCP server."
+8. Go to the "Tools" option, select "Add", then "Custom". From the list, select "Model Context Protocol (MCP)", click "Create".
+9. In the "Name" field, enter "PoliciesAPIMCP".
+10. In the "Remote MCP Server endpoint" field, enter the MCP server address that you noted in step 11.1.11.
+11. In the "Authentication" field, select "Microsoft Entra" - we will configure the policy on the API Management side in the next steps to allow this agent/project to access the MCP
+12. In the "Type" field, select "Agent Identity"
+13. Since Microsoft Foundry Agent Service v2 currently doesn't support adding multiple authentication methods simultaneously, we'll add a "Subscription key" to the query string. Change the "Remote MCP Server endpoint" to https://xxxxxxx.azure-api.net/policiesapimcp/mcp?api_key=xxxxxxxxxxxxxxxxxxxxx, where "Subscription key" was generated in step "3.1".
+14. In the "Audience" field, enter "https://ai.azure.com". 
+
+**Note:** In the next section, we will configure the `validate-azure-ad-token` policy on the API Management side, which will validate Microsoft Entra tokens sent by the agent. The "Audience" field specifies for which recipient the token should be issued, but in our implementation, we will focus mainly on validating the `client-application-id` (agent application identifier). Additionally, we use the Subscription key passed in the query string as an additional security layer.
+
+15. Click "Create" to save the MCP configuration in the agent.
+16. Click "Save".
+17. You can test the agent by typing in the chat window "List available insurance policies?". Information should appear asking whether you accept executing the "getPolicies" query. Due to the unconfigured policy, the system should reject access to the MCP server.
+
+### 11.3 MCP Server Policy Configuration
+
+1. Go to "https://portal.azure.com", search for "Microsoft Foundry Project" where you created the agent from step 11.2. Go to "Microsoft Foundry Project", then click "JSON View" in the upper right corner and note the "agentIdentityId".
+2. Another way to find "agentIdentityId" is to use the portal "https://entra.microsoft.com/" in the "Agent ID" tab. In the "All agent identities" tab, search for the identity with the name of your "Microsoft Foundry project" resource with the AgentIdentity suffix, e.g., "Aaifblamis01-aifblamis01-project01-AgentIdentity".
+3. Go to your API Management.
+4. Then go to "MCP Servers".
+5. Go to the "MCP Server" named "policiesapimcp".
+6. Go to the "Policies" tab.
+7. Enter the policy below. Change the line in the policy regarding "tenant-id" and "<application-id>" - enter the "application-id" from step 11.3.1.
+
+```xml
+<!--
+    - Policies are applied in the order they appear.
+    - Position <base/> inside a section to inherit policies from the outer scope.
+    - Comments within policies are not preserved.
+-->
+<!-- Add policies as children to the <inbound>, <outbound>, <backend>, and <on-error> elements -->
+<policies>
+	<!-- Throttle, authorize, validate, cache, or transform the requests -->
+	<inbound>
+		<base />
+		<choose>
+			<when condition="@(context.Request.Url.Query.ContainsKey("api_key"))">
+				<!-- 2. Set the x-api-key header to the value from the query -->
+				<set-header name="Ocp-Apim-Subscription-Key" exists-action="override">
+					<value>@(context.Request.Url.Query.GetValueOrDefault("api_key", ""))</value>
+				</set-header>
+				<!-- 3. (Optional) remove api_key from query before sending to backend -->
+				<set-query-parameter name="api_key" exists-action="delete" />
+			</when>
+		</choose>
+		<validate-azure-ad-token tenant-id="tenant-id xxxxxxxx" header-name="Authorization" failed-validation-httpcode="401" failed-validation-error-message="Unauthorized. Access token is missing or invalid.">
+			<client-application-ids>
+				<application-id>xxxxxxxxxxxxxxxxxxxxxx</application-id>
+			</client-application-ids>
+		</validate-azure-ad-token>
+	</inbound>
+	<!-- Control if and how the requests are forwarded to services  -->
+	<backend>
+		<base />
+	</backend>
+	<!-- Customize the responses -->
+	<outbound>
+		<base />
+	</outbound>
+	<!-- Handle exceptions and customize error responses  -->
+	<on-error>
+		<base />
+	</on-error>
+</policies>
+```
+
+8. Go to "https://ai.azure.com".
+9. Find your Microsoft Foundry where the agent was created. Use the new Microsoft Foundry interface. You'll find the Microsoft Foundry project selector in the upper left corner.
+10. Go to the "Build" tab - you'll find this option in the upper right corner.
+11. Click on "Agents", then select "Agent-Insurance".
+12. You can test the agent by typing in the chat window "List available insurance policies?". Information should appear asking whether you accept executing the "getPolicies" query. This time API Management should display the data.
 
 ---
 
@@ -1168,7 +1796,212 @@ https://learn.microsoft.com/en-us/azure/api-management/export-rest-mcp-server
 5. Make sure that in the "Settings" -> "Networking" option, there is a firewall rule allowing traffic from your IP address - necessary for connecting to the database in the next step.
 6. Use Visual Studio Code with the PostgreSQL extension or pgAdmin (https://www.pgadmin.org/download/) to connect to the database. Connection parameters: server address, database name, user, and password are available in the resource view in the portal.
 
-*[Sections 12.2-12.5 continue with Data Population, Embedding, DiskANN Index Setup, Creating Vector Search Interface in Azure Function, Creating API, and Exposing API as MCP]*
+### 12.2 Data Population, Embedding, DiskANN Index Setup
+
+1. Use the default "postgres" database.
+2. In the "public" schema, create a new "policies" table using the script below.
+
+```sql
+DROP TABLE IF EXISTS policies;
+
+CREATE TABLE IF NOT EXISTS policies (
+    polisa_id    TEXT PRIMARY KEY,
+    rodzaj_polisy TEXT NOT NULL,
+    pakiet       TEXT,
+    cena         NUMERIC(10,2) NOT NULL,
+    opis         TEXT
+);
+```
+
+3. Populate the newly created table with data:
+
+```sql
+INSERT INTO policies (polisa_id, rodzaj_polisy, pakiet, cena, opis)
+VALUES
+  ('123456', 'health', 'premium', 100, 'Premium health insurance.'),
+  ('123457', 'auto', 'standard', 75, 'Basic car insurance.'),
+  ('123458', 'travel', 'premium', 120, 'Comprehensive travel insurance with baggage protection and assistance.'),
+  ('123459', 'home', 'standard', 90, 'Basic home insurance against random events.'),
+  ('123460', 'life', 'premium', 150, 'Life insurance with high sum insured and additional benefits.'),
+  ('123461', 'liability', 'standard', 60, 'Mandatory third-party liability insurance for drivers.'),
+  ('123462', 'business', 'premium', 200, 'Business insurance covering property and civil liability.'),
+  ('123463', 'bicycle', 'standard', 40, 'Bicycle insurance against theft and damage.')
+  ;
+```
+
+4. Enable the AZURE_AI, PG_DISKANN, and VECTOR extensions:
+
+```sql
+CREATE EXTENSION IF NOT EXISTS azure_ai;
+CREATE EXTENSION IF NOT EXISTS vector;
+CREATE EXTENSION IF NOT EXISTS pg_diskann;
+```
+
+5. Configure connection parameters with OpenAI. We will use the model to create embeddings (Note! Make sure you have the "text-embedding-ada-002" model deployed in Microsoft Foundry):
+
+```sql
+ SELECT azure_ai.set_setting('azure_openai.auth_type', 'managed-identity');
+SELECT azure_ai.set_setting('azure_openai.endpoint', '<endpoint>');
+```
+
+6. In the "policies" table, add an "embedding" column of vector type:
+
+```sql
+ALTER TABLE policies ADD COLUMN embedding vector(1536);
+```
+
+7. Build embeddings for data in the "policies" table:
+
+```sql
+WITH po AS (
+    SELECT po.polisa_id
+    FROM
+        policies po
+    WHERE
+        po.embedding is null
+        LIMIT 500 --limit to avoid exceeding request limits; if there are more than 500 records, execute the code multiple times
+)
+UPDATE
+    policies p
+SET
+    embedding = azure_openai.create_embeddings('text-embedding-ada-002', p.rodzaj_polisy||' '||p.pakiet||' '||p.cena||' '||p.opis)
+FROM
+    po
+WHERE
+    p.polisa_id = po.polisa_id;
+```
+
+8. Build a DiskANN index on the "policies" table:
+
+```sql
+CREATE INDEX ON policies USING diskann (embedding vector_cosine_ops);
+```
+
+9. Test the vector search functionality:
+
+```sql
+SELECT
+    p.*
+FROM
+    policies p
+ORDER BY
+    p.embedding <#> azure_openai.create_embeddings('text-embedding-ada-002', 'Car insurance policy')::vector
+LIMIT 1;
+```
+
+### 12.3 Creating Vector Search Interface in Azure Function
+
+1. If you don't already have an Azure Function resource, create one:
+    - Search for "Azure Function" in Azure Portal
+    - Click "+ Create"
+    - Fill out the form and create the resource (Runtime: Python)
+2. Using the Azure Functions extension in Visual Studio Code, create a new project (HTTP Triggered).
+3. If needed, use the function code included in the repository.
+4. Define a function that establishes a database connection:
+
+```python
+def _get_db_conn():
+    """Create and return a new psycopg2 connection using env vars."""
+    return psycopg2.connect(
+        host=os.getenv("PG_HOST"),
+        port=int(os.getenv("PG_PORT", "5432")),
+        dbname=os.getenv("PG_DATABASE"),
+        user=os.getenv("PG_USER"),
+        password=os.getenv("PG_PASSWORD"),
+    )
+```
+
+5. Define a function that performs vector search:
+
+```python
+def vector_search(
+    query: str,
+    table: str = "policies",
+    id_column: str = "polisa_id",
+    content_column: str = "opis",
+) -> List[Dict]:
+    """Perform a vector similarity search against an Azure PostgreSQL DB with `pgvector`.
+
+    - `query`: text to search for. 
+    - Returns a list of dicts with `id`, `content`.
+    """
+    conn = _get_db_conn()
+    try:
+        with conn.cursor() as cur:
+            q = sql.SQL(
+                "SELECT {id_col}, {content_col} "
+                "FROM {table} "
+                "ORDER BY embedding <#> azure_openai.create_embeddings('text-embedding-ada-002', {query})::vector "
+                "LIMIT 1"
+            ).format(
+                id_col=sql.Identifier(id_column),
+                content_col=sql.Identifier(content_column),
+                query=sql.Literal(query),
+                table=sql.Identifier(table),
+            )
+
+            cur.execute(q)
+            rows = cur.fetchall()
+
+            results = []
+            for r in rows:
+                results.append({"id": r[0], "content": r[1]})
+
+            return results
+    finally:
+        conn.close()
+```
+
+6. And HTTP request handling:
+
+```python
+@app.route(route="get_policies", methods=("GET","POST"))
+def get_policies(req: func.HttpRequest) -> func.HttpResponse:
+    logging.info('Python HTTP trigger function processed a request.')
+
+    try:
+        params = req.get_json()
+    except Exception:
+        params = {}
+
+    query = req.params.get("q") or req.params.get("query") or params.get("q") or params.get("query")
+    if not query:
+        return func.HttpResponse("Missing 'query' parameter", status_code=400)
+    
+    try:
+        results = vector_search(query)
+    except Exception as e:
+        logging.exception("vector_search failed")
+        return func.HttpResponse(str(e), status_code=500)
+
+    return func.HttpResponse(json.dumps(results), mimetype="application/json", status_code=200)
+```
+
+7. Note the required modules:
+
+```python
+azure-functions
+psycopg2-binary
+```
+
+8. Deploy the code to the Azure Function resource.
+9. Find and open the Azure Function resource in the portal.
+10. In "Settings" -> "Environment variables", on the "App settings" tab, create settings:
+    - PG_HOST
+    - PG_PORT (default 5432)
+    - PG_DATABASE
+    - PG_USER
+    - PG_PASSWORD
+
+11. Test the function in "Overview" -> "Functions" -> (function name) -> "Code+Test" -> "Test/Run" option. Provide the "query" request parameter by entering e.g., "car insurance policy". Execution should return a result and HTTP 200.
+
+### 12.4 Creating API
+
+Perform similarly as in steps 1.4, 1.5, pointing to the endpoint of the created function.
+
+### 12.5 Exposing API as MCP
+
+Perform similarly as in section 11.
 
 ---
 
@@ -1184,7 +2017,112 @@ https://learn.microsoft.com/en-us/azure/api-management/export-rest-mcp-server
 3. Go to Microsoft Fabric in a separate browser tab (https://app.fabric.microsoft.com/).
 4. Create a new workspace "Workspaces" -> "New workspace". In the "Advanced" tab, select "Fabric capacity".
 
-*[Sections 13.2-13.4 continue with PostgreSQL Mirroring Configuration, Creating Data Agent in Microsoft Fabric, and Exposing Data Agent as MCP for Microsoft Foundry]*
+### 13.2 PostgreSQL Mirroring Configuration
+
+1. Go to the Azure Database for PostgreSQL resource page.
+2. Go to the "Fabric mirroring" tab and click "Get started".
+3. From the list of available databases, select "postgres" and then click "Prepare".
+4. The resource will change its configuration to enable mirroring to Microsoft Fabric. During this time, the server may restart. After the process is complete, the "Fabric mirroring" tab will display the information "Server readiness": "Server is ready for mirroring".
+5. Go to Microsoft Fabric, to the created workspace.
+6. Click "New item" and from the list of objects select "Mirrored Azure Database for PostgreSQL (preview)".
+7. In the next dialog window, click the connector name "Azure Database for PostgreSQL".
+8. Provide connection parameters.
+9. In the "Choose data" dialog, select the table ("public.policies") for replication. Ignore warnings about incompatible vector type.
+10. Click "Connect", then name the new object. Click "Create mirrored database".
+11. After a moment, a "Mirrored database" object will be created. Open it and verify that replication is working correctly (synchronized records status).
+
+### 13.3 Creating Data Agent in Microsoft Fabric
+
+1. In the workspace, click "New item" and select "Data agent (preview)". Provide the object name, click "Create".
+2. In the agent dialog, in the "Explorer" tab, click "+ Data source" and select the created "Mirrored database". Click "Add".
+3. In the "Explorer" tab, select the "policies" table as the data source for the agent.
+4. Click the "Agent instructions" option.
+5. In the new window, provide instructions for the agent (Markdown):
+
+```txt
+
+# Microsoft Fabric Data Agent – Insurance Advisor (Instructions)
+
+## 0) Agent Role & Objective
+You are the "Insurance Advisor" for our organization. 
+Your job is to: (a) understand a customer's profile and needs; (b) search governed policy data; 
+(c) recommend one or more suitable policies with clear reasoning; (d) return a concise, structured answer that an advisor can share with a customer.
+
+Always respect security trimming and only query data sources the end user is permitted to access.
+
+---
+
+## 1) Data Sources & Preferred Routing
+Use these data sources in order of preference:
+
+1. Table `policies`:
+   - Use for raw policy metadata.
+
+---
+
+## 2) Canonical Schema Notes (for NL→SQL)
+- `policies(polisa_id, rodzaj_polisy, pakiet, cena, opis)`
+- `premium_rates(rodzaj_polisy, pakiet)`
+- `eligibility_rules(rodzaj_polisy)`
+
+Use exact column names; prefer filters on `rodzaj_polisy` and `pakiet`. 
+When joining, key is `rodzaj_polisy` (and `pakiet` where applicable).
+
+---
+
+## 3) Business Rules for Recommendations
+Apply these rules before proposing results:
+
+A. Eligibility (hard filters)
+- Health ("zdrowotna"): age ≥ 18; if pre‑existing conditions flagged, include riders in coverage_options.
+- Auto ("samochodowa"): requires `requires_vehicle = true`; check region_allow.
+- Travel ("turystyczna"): if travel_frequency ≥ 2 trips/quarter → prefer "premium" pack; else "standard".
+- Home ("mieszkaniowa"): requires property ownership; exclude high‑risk flood zones unless add‑on available.
+- Life ("życie"): age ≤ 70 for standard; >70 → show "senior" variants if present.
+
+
+---
+
+## 4) Output Format (strict)
+Return **only** the following JSON block in a fenced code block, plus a one‑paragraph summary above it:
+
+Summary: 1–2 sentences explaining why the top policy is a fit, in plain language.
+```
+```json
+{
+  "top_recommendation": {
+    "polisa_id": "<string>",
+    "rodzaj_polisy": "<string>",
+    "pakiet": "<string>"
+  },
+  "alternatives": [
+    { "polisa_id":"...", "pakiet":"..." },
+    { "polisa_id":"...", "pakiet":"..." }
+  ],
+  
+}
+```
+
+6. Test the agent in the "Test the agent's responses" window, e.g., "looking for car insurance policy".
+7. Publish the agent by clicking "Publish".
+
+### 13.4 Exposing Data Agent as MCP for Microsoft Foundry
+
+1. In the Microsoft Foundry portal (https://ai.azure.com) in New Foundry, create a new agent by clicking "Start building" -> "Create agent".
+2. Give it a name, e.g., "agent-policies".
+3. In the "Tools" tab, click "Add" and then "Add a new tool".
+4. Select "Fabric Data Agent" and then "Add Tool".
+5. In the connection configuration dialog, provide the Workspace ID and Artifact ID, available to read in Microsoft Fabric in the address bar on the page with the created Data Agent: https://app.fabric.microsoft.com/groups/<workspace-id>/aiskills/<artifact-id>?experience=fabric-developer
+6. Click "Connect".
+7. In the "Instructions" window, provide instructions for the agent:
+
+```txt
+You are the "Insurance Advisor" for our organization. 
+Your job is to: (a) understand a customer's profile and needs; (b) search governed policy data; 
+(c) recommend one or more suitable policies with clear reasoning; (d) return a concise, structured answer that an advisor can share with a customer. Make sure that you always use the tools to provide policy data.
+```
+
+8. Save changes and test the agent. In the chat window in "Debug", you should see a reference to Tool Fabric Data Agent.
 
 ---
 
