@@ -72,20 +72,20 @@ For our API, we will use the following policy data model:
 2. In the side menu, select "APIs", then select APIs again.
 3. Click "+ Add API" and select "HTTP API"
 4. Fill out the form:
-    - **Display name**: PolisyAPI
-    - **Name**: polisyapi
+    - **Display name**: PoliciesAPI
+    - **Name**: policiesapi
     - **Web service URL**: you can temporarily enter "https://example.org"
-    - **API URL suffix**: polisy
+    - **API URL suffix**: policies
 5. Click "Create"
 
-### 1.5 Adding GET /polisy Operation
+### 1.5 Adding GET /policies Operation
 
-1. Select the created "PolisyAPI" API
+1. Select the created "PoliciesAPI" API
 2. Click "+ Add operation"
 3. Fill out the form:
-    - **Display name**: GetPolisy
-    - **Name**: getpolisy
-    - **URL**: GET /polisy
+    - **Display name**: GetPolicies
+    - **Name**: getpolicies
+    - **URL**: GET /policies
     - **Description**: Retrieves list of available policies
 4. In the "Responses" section, click "+ Add response"
     - **Status code**: 200 OK
@@ -124,7 +124,7 @@ For our API, we will use the following policy data model:
 https://learn.microsoft.com/en-us/azure/api-management/api-management-howto-api-inspector
 
 1. Select the created API and go to the "Test" tab
-2. Select the GET /polisy operation
+2. Select the GET /policies operation
 3. Click "Send"
 4. In the "HTTP Response" section, verify that you receive a response with sample policy data 
 
@@ -142,9 +142,9 @@ https://learn.microsoft.com/en-us/azure/api-management/azure-openai-api-from-spe
 3. In the "Select AI Service" tab, select the Microsoft Foundry service 
 4. Click "Next"
 3. Fill out the form:
-    - **Display name**: polisy-ai
-    - **name**: polisy-ai
-    - **Base path**: polisy-ai 
+    - **Display name**: policies-ai
+    - **name**: policies-ai
+    - **Base path**: policies-ai 
     - In the **Description** field, provide any description 
     - Check the "Azure OpenAI" option
 4. Click "Next"
@@ -199,9 +199,9 @@ You can view metrics in "Log Analytics" by entering the "customMetrics" query in
 7. Click "Send" and check the response
 8. This time, we did not disable the "Subscription required" option in the "Settings" tab, yet we were able to send a query. This happens because the portal automatically provides a key. You can verify this by sending a query with the "Trace" button.
 
-### 2.3 Verifying Subscription Settings for polisy-ai API
+### 2.3 Verifying Subscription Settings for policies-ai API
 
-1. Go to "APIs" and select "polisy-ai"
+1. Go to "APIs" and select "policies-ai"
 2. Go to the "Settings" tab
 3. In the "Subscription" section, make sure the "Subscription required" option is checked
 4. Make sure that the "Header name" value is "Ocp-Apim-Subscription-Key" and the "Query parameter name" shows "subscription-key"
@@ -211,7 +211,7 @@ You can view metrics in "Log Analytics" by entering the "customMetrics" query in
 
 https://learn.microsoft.com/en-us/azure/api-management/api-management-howto-use-managed-service-identity
 
-Check that "system managed identity" has been enabled for "API Management" and that permission has been granted for this identity to "Microsoft Foundry". "Managed Identity" should have been created during API Management creation, the role should have been assigned during the addition of the "polisy-ai" API.
+Check that "system managed identity" has been enabled for "API Management" and that permission has been granted for this identity to "Microsoft Foundry". "Managed Identity" should have been created during API Management creation, the role should have been assigned during the addition of the "policies-ai" API.
 
 1. Go to your API Management
 2. In the side menu, select "Managed identities"
@@ -240,7 +240,7 @@ https://learn.microsoft.com/en-us/azure/api-management/api-management-subscripti
 
 ### 3.2 Enabling Subscription Key Requirement for API
 
-1. Go to "APIs" and select "PolisyAPI"
+1. Go to "APIs" and select "PoliciesAPI"
 2. Go to the "Settings" tab
 3. In the "Subscription" section, check the "Subscription required" option
 4. Make sure that the "Header name" value is "Ocp-Apim-Subscription-Key", and the "Query parameter name" shows "subscription-key"
@@ -249,7 +249,7 @@ https://learn.microsoft.com/en-us/azure/api-management/api-management-subscripti
 ### 3.3 Testing API with Key
 
 1. Go to the "Test" tab
-2. Select the GET /polisy operation
+2. Select the GET /policies operation
 3. Click "Send" and verify that you receive a valid response
 4. Check what the full request looks like (eye icon on the right side in the HTTP request section). The testing tool automatically adds the "Ocp-Apim-Subscription-Key" header. If you use other tools, remember to add the "Ocp-Apim-Subscription-Key" header with the correct key.
 
@@ -261,7 +261,7 @@ https://learn.microsoft.com/en-us/azure/api-management/api-management-subscripti
 
 https://learn.microsoft.com/en-us/azure/api-management/rate-limit-policy
 
-1. Go to "APIs" and select "PolisyAPI"
+1. Go to "APIs" and select "PoliciesAPI"
 2. Select the "Designs" tab, stay in "All operations", go to the "Inbound processing" section, click on </>.
 3. In the XML editor, in the `<inbound>` section, add after the `<base />` tag:
 
@@ -276,7 +276,7 @@ This policy limits the number of calls to 5 per 30 seconds.
 ### 4.2 Testing Call Limit
 
 1. Go to the "Test" tab
-2. Select the GET /polisy operation
+2. Select the GET /policies operation
 3. Click "Send" at least 6 times within 30 seconds
 4. Note that after 5 calls, you receive a "429 Too Many Requests" error
 
@@ -304,7 +304,7 @@ https://learn.microsoft.com/en-us/entra/identity-platform/quickstart-register-ap
 1. In Azure Portal, go to "Microsoft Entra ID"
 2. Select "App registrations" and click "+ New registration"
 3. Fill out the form:
-    - **Name**: PolisyAPI-OAuth-{usernumber} (enter your user number)
+    - **Name**: PoliciesAPI-OAuth-{usernumber} (enter your user number)
     - **Supported account types**: select "Accounts in this organizational directory only"
 4. Click "Register"
 5. Note the "Application (client) ID" and "Directory (tenant) ID" values
@@ -315,7 +315,7 @@ https://learn.microsoft.com/en-us/entra/identity-platform/quickstart-register-ap
 
 https://learn.microsoft.com/en-us/azure/api-management/validate-azure-ad-token-policy
 
-1. Go to "Policies" for "PolisyAPI"
+1. Go to "Policies" for "PoliciesAPI"
 2. In the XML editor, add in the `<inbound>` section after `<base />`:
 
 ```xml
@@ -346,8 +346,8 @@ https://learn.microsoft.com/en-us/azure/logic-apps/quickstart-create-example-con
 12. Click "Add a trigger", select "Request", then "When a HTTP request is received", click "Save".
 13. Click the + sign below the "When a HTTP request is received" tile, select "Add an action"
 14. Search for "Azure API Management" - select "Choose an Azure API Management action", check your Azure API Management instance.
-15. Select "PolisyAPI", click "Add action".
-16. In the "Operation Id" field, select "GetPolisy".
+15. Select "PoliciesAPI", click "Add action".
+16. In the "Operation Id" field, select "GetPolicies".
 17. In the "Advanced parameters" field, check both "Authentication" and "Subscription key".
 18. In the "Authentication" field, select Active Directory OAuth, then fill in all required fields such as "Tenant", "Audience", "Client ID", and "Secret". In the "Audience" field, enter "https://management.azure.com/".
 19. In the "Subscription key" field, enter the key you generated in section "3.1", click "Save".
@@ -375,7 +375,7 @@ az ad sp show --id '[Object (principal) ID]' | ConvertFrom-Json | select display
 
 https://learn.microsoft.com/en-us/azure/api-management/azure-openai-token-limit-policy
 
-1. Find "Azure API Management" in the Azure portal, then go to "APIs" and select the API for Microsoft Foundry named "polisy-ai"
+1. Find "Azure API Management" in the Azure portal, then go to "APIs" and select the API for Microsoft Foundry named "policies-ai"
 2. Go to the "Inbound processing" section, then "Policies", click on </>
 3. In the XML editor, add in the `<inbound>` section after `<base />`:
 
@@ -401,7 +401,7 @@ https://learn.microsoft.com/en-us/azure/api-management/authentication-managed-id
 Backend-id must have the same name as "Backend name" in the "Backends" tab.
 
 ```xml
-<set-backend-service id="apim-generated-policy" backend-id="polisy-ai-openai-endpoint" />
+<set-backend-service id="apim-generated-policy" backend-id="policies-ai-openai-endpoint" />
 ```
 
 6. Click "Save"
@@ -465,7 +465,7 @@ The complete policy should look like this:
 }
 ```
 
-3. Add an action named "API Management" at the very end of the flow (via the + sign). Fill out the form, select your API Management, then select polisy-ai API, click "Add action".
+3. Add an action named "API Management" at the very end of the flow (via the + sign). Fill out the form, select your API Management, then select policies-ai API, click "Add action".
 4. In the "Operation Id" field, select "Creates a completion for the chat message".
 5. In the "Deployment-ID" field, enter "gpt-4o-mini" or another model that is available in Azure OpenAI.
 6. In the "api-version" field, enter "2024-05-01-preview".
@@ -477,7 +477,7 @@ The complete policy should look like this:
   "messages": [
     {
       "role": "system",
-      "content": "@{outputs('polisyapi')}"
+      "content": "@{outputs('policiesapi')}"
     },
     {
       "role": "user", 
@@ -498,8 +498,8 @@ The complete policy should look like this:
 
 https://learn.microsoft.com/en-us/azure/logic-apps/monitor-logic-apps-overview
 
-10. Wait a few seconds for a response from Azure OpenAI and click on "View monitoring view". Check the event flow in Azure Logic App. Go to the block named "polisy-ai" and in the "Outputs" section, find "Body", check the response from the model.
-11. Additional task: change policies in "Azure API Management" and "Azure Logic App" configuration so that "Azure Logic App" for "polisyapi" also uses "Managed Identity".
+10. Wait a few seconds for a response from Azure OpenAI and click on "View monitoring view". Check the event flow in Azure Logic App. Go to the block named "policies-ai" and in the "Outputs" section, find "Body", check the response from the model.
+11. Additional task: change policies in "Azure API Management" and "Azure Logic App" configuration so that "Azure Logic App" for "policiesapi" also uses "Managed Identity".
 
 ---
 
@@ -509,7 +509,7 @@ https://learn.microsoft.com/en-us/azure/logic-apps/monitor-logic-apps-overview
 
 https://learn.microsoft.com/en-us/azure/api-management/json-to-xml-policy
 
-1. Go to "APIs" and select "polisy-ai"
+1. Go to "APIs" and select "policies-ai"
 2. Go to "Policies"
 3. In the XML editor, in the `<outbound>` section after the `<base />` tag, add a JSON to XML conversion policy:
 
@@ -583,7 +583,7 @@ https://learn.microsoft.com/en-us/azure/api-management/api-management-howto-app-
 
 https://learn.microsoft.com/en-us/azure/api-management/trace-policy
 
-1. Go to "APIs" and select "polisy-ai"
+1. Go to "APIs" and select "policies-ai"
 2. Select the "Policies" tab
 3. In the XML editor, add in the `<inbound>` section after `<base />`:
 
@@ -645,7 +645,7 @@ The complete policy should look like this:
             </client-application-ids>
         </validate-azure-ad-token>
         <azure-openai-token-limit counter-key="@(context.Subscription.Id)" tokens-per-minute="10000" estimate-prompt-tokens="true" />
-        <set-backend-service id="apim-generated-policy" backend-id="polisy-ai-ai-endpoint" />
+        <set-backend-service id="apim-generated-policy" backend-id="policies-ai-ai-endpoint" />
     </inbound>
     <backend>
         <base />
@@ -769,16 +769,16 @@ In previous tasks (section 2), you added one Azure AI Foundry resource as a back
 
 1. Go to your **Azure API Management**
 2. In the side menu, select **"Backends"**
-3. You should see a backend named similar to `polisy-ai-openai-endpoint` - this is your **Primary backend** from task 2
+3. You should see a backend named similar to `policies-ai-openai-endpoint` - this is your **Primary backend** from task 2
 4. Click on it and note:
-   - **Backend name** (e.g., `polisy-ai-openai-endpoint`)
+   - **Backend name** (e.g., `policies-ai-openai-endpoint`)
    - **Runtime URL** (e.g., `https://aoai-azureclubworkshopint-{usernumber}-01.cognitiveservices.azure.com/openai`)
 
 ### Step 2: Adding Second Backend (Secondary)
 
 1. In the **"Backends"** section, click **"+ Add"**
 2. Fill out the form:
-   - **Name**: `polisy-ai-openai-endpoint-secondary`
+   - **Name**: `policies-ai-openai-endpoint-secondary`
    - **Type**: Custom URL
    - **Runtime URL**: `https://aoai-azureclubworkshopint-{usernumber}-02.cognitiveservices.azure.com/openai`
      
@@ -795,8 +795,8 @@ After adding, in the **"Backends"** section you should see **two entries**:
 
 | Backend Name | Runtime URL | Role |
 |-------------|-------------|------|
-| `polisy-ai-openai-endpoint` | `https://aoai-azureclubworkshopint-{usernumber}-01.cognitiveservices.azure.com/openai` | Primary |
-| `polisy-ai-openai-endpoint-secondary` | `https://aoai-azureclubworkshopint-{usernumber}-02.cognitiveservices.azure.com/openai` | Secondary |
+| `policies-ai-openai-endpoint` | `https://aoai-azureclubworkshopint-{usernumber}-01.cognitiveservices.azure.com/openai` | Primary |
+| `policies-ai-openai-endpoint-secondary` | `https://aoai-azureclubworkshopint-{usernumber}-02.cognitiveservices.azure.com/openai` | Secondary |
 
 > 💡 **Note**: In this Smart Load Balancing task, we don't use backends defined in APIM directly (via `<set-backend-service backend-id="...">`), but dynamically set the URL in the policy. However, adding backends is good practice for clarity and possible future extensions.
 
@@ -851,7 +851,7 @@ This policy implements **automatic retry** on 429/5xx errors:
 
 > 💾 **Optional - backup**: If you want to be able to return to the previous policy version, before replacing, copy the current editor content (Ctrl+A, Ctrl+C) and paste it into a notepad or text file (e.g., `polityka-backup.xml`).
 
-1. Go to **"APIs"** and select **"polisy-ai"**
+1. Go to **"APIs"** and select **"policies-ai"
 2. Go to the **"Inbound processing"** section, click on **`</>`**
 3. **Select ALL content** in the editor (Ctrl+A) and **delete** it
 4. Paste the following XML code (Ctrl+V):
@@ -1142,13 +1142,13 @@ https://learn.microsoft.com/en-us/azure/api-management/export-rest-mcp-server
 1. Go to your API Management
 2. Then go to "MCP Servers"
 3. Click on "Create MCP server", select "Expose an API as MCP server"
-4. In the "API" field, select "PolisyAPI"
-5. In the "API operations" field, select "[Get] GetPolisy"
-6. In the "Display name" field, enter the name "PolisyAPIMCP"
-7. In the "Name" field, enter the name "polisyapimcp"
+4. In the "API" field, select "PoliciesAPI"
+5. In the "API operations" field, select "[Get] GetPolicies"
+6. In the "Display name" field, enter the name "PoliciesAPIMCP"
+7. In the "Name" field, enter the name "policiesapimcp"
 9. In the "Description" field, enter "List of available policies".
 10. Click "Create"
-11. Enter the created MCP named "PolisyAPIMCP" and note the "MCP server URL", e.g., https://xxxxxxx.azure-api.net/polisyapimcp/mcp
+11. Enter the created MCP named "PoliciesAPIMCP" and note the "MCP server URL", e.g., https://xxxxxxx.azure-api.net/policiesapimcp/mcp
 
 *[Sections 11.2-11.3 continue with Agent Configuration in Microsoft Foundry and MCP Server Policy Configuration]*
 

@@ -163,7 +163,7 @@ la-azureclubworkshopint-05                    # Logic App
 ┌─────────────────────────────────────────────┐
 │     Azure API Management (APIM)             │
 │  ┌─────────────────────────────────────┐   │
-│  │  PolisyAPI (GET /polisy)            │   │
+│  │  PoliciesAPI (GET /policies)        │   │
 │  │  ChatAPI (POST /chat)               │   │
 │  │  OAuth 2.0 Security                 │   │
 │  │  Smart Load Balancing               │   │
