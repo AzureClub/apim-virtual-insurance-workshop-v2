@@ -27,7 +27,7 @@
 | **Application Insights** | `appi-{prefix}-{usernumber}` | `appi-azureclubworkshopint-05` |
 | **Virtual Network** | `vnet-{prefix}-{usernumber}` | `vnet-azureclubworkshopint-05` |
 | **Logic App** | `la-{prefix}-{usernumber}` | `la-azureclubworkshopint-05` |
-| **App Registration** | `PolisyAPI-OAuth-{usernumber}` | `PolisyAPI-OAuth-05` |
+| **App Registration** | `PoliciesAPI-OAuth-{usernumber}` | `PoliciesAPI-OAuth-05` |
 | **PostgreSQL** | `psql-{prefix}-{usernumber}` | `psql-azureclubworkshopint-05` |
 | **Fabric Capacity** | `fc{prefix}{usernumber}` (no hyphens) | `fcazureclubworkshopint05` |
 | **Function App** | `func-{prefix}-{usernumber}` | `func-azureclubworkshopint-05` |
